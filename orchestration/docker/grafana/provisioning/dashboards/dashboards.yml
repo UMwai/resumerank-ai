@@ -1,0 +1,17 @@
+# Grafana Dashboard Provisioning
+#
+# Automatically loads dashboards from the dashboards directory
+
+apiVersion: 1
+
+providers:
+  - name: 'Investment Signals'
+    orgId: 1
+    folder: 'Investment Signals'
+    folderUid: 'investment-signals'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

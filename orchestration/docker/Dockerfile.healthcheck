@@ -1,0 +1,29 @@
+# Health Check Service Dockerfile
+#
+# Lightweight service that exposes health check endpoints
+# and Prometheus metrics for monitoring.
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir \
+    flask>=3.0.0 \
+    gunicorn>=21.2.0 \
+    psycopg2-binary>=2.9.9 \
+    requests>=2.31.0 \
+    prometheus-client>=0.19.0
+
+# Copy health check code
+COPY healthcheck_service.py /app/
+
+# Expose port
+EXPOSE 9091
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:9091/health || exit 1
+
+# Run with gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:9091", "--workers", "2", "healthcheck_service:app"]

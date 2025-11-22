@@ -1,0 +1,315 @@
+================================================================================
+BIOTECH INSIDER + HIRING SIGNALS REPORT
+Generated: 2024-01-15 09:30:00
+================================================================================
+
+SCORING METHODOLOGY
+----------------------------------------
+Composite Score: Weighted sum of all signals with time-decay
+  - Recent signals weighted more heavily (30-day half-life)
+  - Score range: -10 (very bearish) to +10 (very bullish)
+
+Confidence: Based on signal count and quality
+  - Range: 0.0 (low) to 1.0 (high)
+
+Recommendations:
+  STRONG BUY:  Score >= 6.0, Confidence >= 0.70
+  BUY:         Score >= 3.0, Confidence >= 0.50
+  NEUTRAL:     Between BUY and SELL thresholds
+  SELL:        Score <= -3.0, Confidence >= 0.50
+  STRONG SELL: Score <= -6.0, Confidence >= 0.70
+
+================================================================================
+SIGNAL SUMMARY
+================================================================================
+
+Ticker    Score    Conf    Rec           Insider    Inst    Hiring
+--------  -------  ------  ------------  ---------  ------  --------
+MRNA      +6.5     75%     STRONG BUY    +3.5       +2.0    +3.0
+VRTX      +4.2     65%     BUY           +2.5       +1.5    +2.0
+CRSP      +3.8     60%     BUY           +1.5       +2.0    +1.5
+BEAM      +1.2     45%     NEUTRAL       +0.5       +0.5    +0.5
+EDIT      -2.5     55%     NEUTRAL       -1.5       -1.0    +0.0
+NTLA      +2.1     50%     NEUTRAL       +1.0       +0.5    +1.0
+ALNY      +5.1     68%     BUY           +2.0       +2.5    +1.5
+BLUE      -5.2     70%     SELL          -2.5       -1.5    -2.0
+SAGE      -6.8     75%     STRONG SELL   -3.0       -2.5    -2.5
+REGN      +3.5     55%     BUY           +1.5       +1.0    +1.5
+
+================================================================================
+DETAILED SIGNAL BREAKDOWN
+================================================================================
+
+--- MRNA (Moderna Inc) ---
+Composite Score: +6.50
+Confidence: 75%
+Recommendation: STRONG BUY
+
+Score Breakdown:
+  Insider Score:       +3.50
+  Institutional Score: +2.00
+  Hiring Score:        +3.00
+
+Contributing Signals:
+  [+3.75] CEO_PURCHASE: CEO bought $200K of shares (10 days ago)
+  [+3.35] COMMERCIAL_BUILDUP: 8 commercial roles posted (15 days ago)
+  [+2.50] FUND_NEW_POSITION: Baker Bros initiated position (Q3 2023)
+  [+1.52] FUND_INCREASE_50: RA Capital increased 60% (50 days ago)
+
+Analysis: Strong bullish convergence across all signal categories. CEO open
+market purchase (not 10b5-1 plan) suggests high confidence in near-term
+catalysts. Commercial hiring buildup indicates potential product launch
+preparation. Multiple top biotech funds establishing/increasing positions.
+
+--- VRTX (Vertex Pharmaceuticals) ---
+Composite Score: +4.20
+Confidence: 65%
+Recommendation: BUY
+
+Score Breakdown:
+  Insider Score:       +2.50
+  Institutional Score: +1.50
+  Hiring Score:        +2.00
+
+Contributing Signals:
+  [+2.50] CFO_PURCHASE: CFO bought $100K of shares (20 days ago)
+  [+2.00] CLINICAL_EXPANSION: 5 clinical operations roles (25 days ago)
+  [+1.90] FUND_INCREASE_50: RA Capital increased 60% (45 days ago)
+  [+1.20] REGULATORY_EXPANSION: 3 regulatory affairs roles posted
+
+Analysis: CFO purchase is notable signal - CFOs rarely buy unless confident
+in financials. Clinical operations expansion suggests trial activity
+acceleration. Regulatory hiring may indicate FDA submission preparation.
+
+--- CRSP (CRISPR Therapeutics) ---
+Composite Score: +3.80
+Confidence: 60%
+Recommendation: BUY
+
+Score Breakdown:
+  Insider Score:       +1.50
+  Institutional Score: +2.00
+  Hiring Score:        +1.50
+
+Contributing Signals:
+  [+2.00] FUND_NEW_POSITION: Perceptive Advisors initiated position
+  [+1.50] DIRECTOR_PURCHASE: Board director bought $75K
+  [+1.20] REGULATORY_EXPANSION: Regulatory team hiring underway
+  [+1.00] FUND_INCREASE_25: Viking Global increased 30%
+
+Analysis: Smart money convergence with Perceptive (specialist biotech fund)
+initiating a new position. Director purchase after joining board suggests
+due diligence revealed opportunity. Regulatory hiring indicates potential
+near-term submission.
+
+--- ALNY (Alnylam Pharmaceuticals) ---
+Composite Score: +5.10
+Confidence: 68%
+Recommendation: BUY
+
+Score Breakdown:
+  Insider Score:       +2.00
+  Institutional Score: +2.50
+  Hiring Score:        +1.50
+
+Contributing Signals:
+  [+2.50] MULTIPLE_FUNDS_INITIATE: 3 top funds initiated positions
+  [+2.00] OFFICER_PURCHASE: VP R&D bought $80K
+  [+1.50] MSL_HIRING: 4 Medical Science Liaison roles posted
+
+Analysis: Three top biotech-focused funds initiating positions in same
+quarter is a strong convergence signal. MSL hiring indicates pre-launch
+preparation for commercial asset. R&D officer purchase suggests pipeline
+confidence.
+
+--- BEAM (Beam Therapeutics) ---
+Composite Score: +1.20
+Confidence: 45%
+Recommendation: NEUTRAL
+
+Score Breakdown:
+  Insider Score:       +0.50
+  Institutional Score: +0.50
+  Hiring Score:        +0.50
+
+Contributing Signals:
+  [+0.80] OFFICER_PURCHASE: SVP bought $50K
+  [+0.70] FUND_INCREASE_25: Tang Capital increased 30%
+
+Analysis: Limited signal activity. Small officer purchase and modest fund
+increase. Insufficient data for high-confidence directional call. Monitor
+for additional signals.
+
+--- EDIT (Editas Medicine) ---
+Composite Score: -2.50
+Confidence: 55%
+Recommendation: NEUTRAL
+
+Score Breakdown:
+  Insider Score:       -1.50
+  Institutional Score: -1.00
+  Hiring Score:        +0.00
+
+Contributing Signals:
+  [-2.00] CFO_SALE: CFO sold $150K of shares (not 10b5-1)
+  [-1.00] FUND_DECREASE_25: OrbiMed decreased 30%
+
+Analysis: CFO selling outside of 10b5-1 plan is concerning - may indicate
+financial concerns or lack of near-term catalyst confidence. Fund reduction
+adds to negative sentiment. No positive hiring signals to offset.
+
+--- BLUE (Bluebird Bio) ---
+Composite Score: -5.20
+Confidence: 70%
+Recommendation: SELL
+
+Score Breakdown:
+  Insider Score:       -2.50
+  Institutional Score: -1.50
+  Hiring Score:        -2.00
+
+Contributing Signals:
+  [-3.00] MULTIPLE_INSIDER_SELL: 3 insiders sold in past 30 days
+  [-2.00] FUND_EXIT: Boxer Capital exited position completely
+  [-1.50] HIRING_FREEZE: 8 job postings removed in 2 weeks
+
+Analysis: Strong bearish convergence. Multiple insiders selling in short
+window suggests coordinated pessimism. Top fund complete exit is major
+red flag. Job posting removals indicate potential cash runway concerns
+or restructuring.
+
+--- SAGE (Sage Therapeutics) ---
+Composite Score: -6.80
+Confidence: 75%
+Recommendation: STRONG SELL
+
+Score Breakdown:
+  Insider Score:       -3.00
+  Institutional Score: -2.50
+  Hiring Score:        -2.50
+
+Contributing Signals:
+  [-3.00] CEO_SALE: CEO sold 15% of holdings (discretionary)
+  [-3.00] MULTIPLE_FUNDS_EXIT: 3 top funds exited positions
+  [-2.00] HIRING_FREEZE: 12 job postings removed
+  [-1.50] CMO_DEPARTURE: Chief Medical Officer departed (Form 8-K)
+
+Analysis: CRITICAL BEARISH SIGNALS. CEO large discretionary sale is rare
+and highly informative. Multiple fund exits in same quarter indicates
+loss of smart money confidence. Significant hiring freeze suggests
+restructuring. CMO departure may indicate clinical/pipeline concerns.
+
+================================================================================
+TIME-DECAY CALCULATION EXAMPLE
+================================================================================
+
+Company: MRNA
+Lookback Period: 90 days
+Half-Life: 30 days
+
+Signal                      Date         Raw Weight   Days Ago   Decay    Contrib
+--------------------------  -----------  -----------  --------   ------   -------
+CEO bought $200K            Jan 5        +5           10         0.75     +3.75
+Baker Bros new position     Nov 26       +5           50         0.38     +1.90
+8 commercial jobs posted    Dec 31       +5           15         0.67     +3.35
+RA Capital increased 60%    Nov 26       +4           50         0.38     +1.52
+
+Total Raw Score:                         +19
+Total Weighted Score:                                            +10.52
+Normalized Score (div 2):                                        +5.26
+Clamped to [-10, +10]:                                          +5.26
+
+Confidence Calculation:
+  Sum of |weight| * decay = 3.75 + 1.90 + 3.35 + 1.52 = 10.52
+  Confidence = min(1.0, 10.52 / 20) = 0.53
+
+Final Score: +5.26
+Confidence: 53%
+Recommendation: BUY (score >= 3.0, confidence >= 0.5)
+
+================================================================================
+SIGNAL WEIGHTS REFERENCE
+================================================================================
+
+BULLISH SIGNALS (Positive Weights):
+  +7: Activist investor files 13D (rare, high impact)
+  +6: Multiple insiders buy in 30 days (coordinated optimism)
+  +6: 3+ top funds initiate positions (smart money convergence)
+  +5: CEO buys >$100K open market (extreme confidence)
+  +5: CMO buys (clinical data confidence - very rare)
+  +5: Top fund initiates new position
+  +5: 5+ commercial roles posted (launch preparation)
+  +5: MSL roles posted (pre-launch medical affairs)
+  +4: CFO buys >$50K (financial health signal)
+  +4: Top fund increases >50%
+  +4: VP Manufacturing hired (scale-up signal)
+  +4: Clinical operations expansion
+  +3: Director buys after joining board
+  +3: Regulatory team expansion (FDA submission prep)
+  +2: Top fund increases >25%
+
+BEARISH SIGNALS (Negative Weights):
+  -7: Activist campaign against management
+  -6: Multiple insiders sell in 30 days (coordinated pessimism)
+  -6: 3+ top funds exit positions (smart money fleeing)
+  -6: CMO departure (pipeline/data concerns)
+  -5: CFO sells before quarter end (knows financials)
+  -5: Top fund exits completely
+  -5: C-suite sells after trial update (data not as good)
+  -5: Clinical site hiring stops (enrollment problems)
+  -4: CEO sells >10% of holdings
+  -4: Top fund decreases >50%
+  -4: Job postings removed en masse (hiring freeze)
+  -4: Glassdoor mentions layoffs spike
+  -3: Top fund decreases >25%
+
+NEUTRAL/IGNORED:
+  0: 10b5-1 plan transactions (pre-scheduled, not informative)
+  0: Option exercises (typically tax-related)
+  0: Transactions < $50K (noise threshold)
+
+================================================================================
+DATA SOURCES
+================================================================================
+
+1. SEC EDGAR - Form 4 (Insider Trading)
+   - Real-time filings (within 2 business days of trade)
+   - Distinguishes open market vs 10b5-1 plan trades
+   - Updates: Continuous
+
+2. SEC EDGAR - Form 13F (Institutional Holdings)
+   - Quarterly filings (45 days after quarter end)
+   - Position changes vs previous quarter
+   - Updates: Quarterly
+
+3. Company Career Pages (Job Postings)
+   - Greenhouse, Lever, Workday platforms
+   - Classification by department/seniority
+   - Updates: Daily
+
+4. SEC EDGAR - Form 8-K (Material Events) [Future]
+   - Executive departures/hires
+   - Material agreements
+   - Updates: Real-time
+
+================================================================================
+DISCLAIMER
+================================================================================
+
+This report is for informational purposes only and does not constitute
+investment advice. The signals and scores are based on publicly available
+information and historical patterns. Past performance does not guarantee
+future results.
+
+Key Limitations:
+- 13F data is 45+ days delayed
+- Job postings may not reflect actual hiring decisions
+- Insider trades may occur for personal reasons unrelated to company outlook
+- Signal weights are based on historical correlations, not guarantees
+
+Always conduct your own due diligence before making investment decisions.
+The information may be incomplete or inaccurate.
+
+================================================================================
+REPORT END
+================================================================================

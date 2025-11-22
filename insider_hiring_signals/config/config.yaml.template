@@ -1,0 +1,134 @@
+# Insider Activity + Hiring Signals System Configuration
+# Copy this file to config.yaml and fill in your credentials
+
+# Database Configuration
+database:
+  host: localhost
+  port: 5432
+  name: insider_signals
+  user: your_db_user
+  password: your_db_password
+
+# SEC EDGAR Configuration
+sec_edgar:
+  user_agent: "Your Name your.email@example.com"
+  rate_limit_requests_per_second: 10
+  base_url: "https://www.sec.gov"
+
+# AI Configuration (for sentiment analysis)
+ai:
+  provider: anthropic  # or openai
+  anthropic_api_key: your_anthropic_api_key
+  openai_api_key: your_openai_api_key
+  model: claude-sonnet-4-5-20250929
+
+# Email Configuration
+email:
+  smtp_server: smtp.gmail.com
+  smtp_port: 587
+  sender_email: your_email@gmail.com
+  sender_password: your_app_password
+  recipients:
+    - recipient1@example.com
+    - recipient2@example.com
+  send_daily_digest: true
+  digest_time: "07:00"  # 24-hour format
+
+# Scraping Configuration
+scraping:
+  rate_limit_seconds: 2.0
+  max_retries: 3
+  timeout_seconds: 30
+  use_proxy: false
+  proxy_url: ""
+
+# Signal Configuration
+signals:
+  lookback_days: 90
+  min_transaction_value: 50000  # $50K minimum for insider trades
+  min_confidence: 0.5
+  time_decay_halflife: 30  # days
+
+# Watchlist - Top Biotech Companies
+# These are example tickers; customize for your needs
+watchlist:
+  - MRNA
+  - BNTX
+  - VRTX
+  - REGN
+  - BIIB
+  - SGEN
+  - ALNY
+  - BMRN
+  - INCY
+  - IONS
+  - NBIX
+  - ARVN
+  - BEAM
+  - CRSP
+  - EDIT
+  - NTLA
+  - FATE
+  - KYMR
+  - IMVT
+  - ARCUS
+  - CRVS
+  - XNCR
+  - KURA
+  - ABCL
+  - LEGN
+  - SNDX
+  - TGTX
+  - QURE
+  - ALLO
+  - BLUE
+  - SAGE
+  - RCKT
+  - SWTX
+  - RPID
+  - JANX
+  - SANA
+  - VERV
+  - AADI
+  - PRTA
+  - APLS
+  - TVTX
+  - IOVA
+  - ADPT
+  - MNKD
+  - SRPT
+  - VCEL
+  - HZNP
+  - BGNE
+  - ACAD
+  - UTHR
+
+# Top Biotech-Focused Institutional Investors (13F tracking)
+institutional_investors:
+  - name: "Baker Bros Advisors LP"
+    cik: "0001537554"
+  - name: "RA Capital Management LP"
+    cik: "0001598627"
+  - name: "Perceptive Advisors LLC"
+    cik: "0001428987"
+  - name: "Boxer Capital LLC"
+    cik: "0001510494"
+  - name: "OrbiMed Advisors LLC"
+    cik: "0001187508"
+  - name: "Farallon Capital Management LLC"
+    cik: "0001015780"
+  - name: "Viking Global Investors LP"
+    cik: "0001103804"
+  - name: "Partner Fund Management LP"
+    cik: "0001484967"
+  - name: "Deerfield Management Company"
+    cik: "0001502183"
+  - name: "Tang Capital Management LLC"
+    cik: "0001569691"
+
+# Logging Configuration
+logging:
+  level: INFO
+  file: logs/insider_signals.log
+  max_size_mb: 10
+  backup_count: 5

@@ -1,0 +1,63 @@
+# Prometheus Configuration for Investment Signals Orchestration
+#
+# Scrapes metrics from:
+# - Health check service
+# - Airflow (via StatsD exporter)
+# - Node exporter (system metrics)
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'investment-signals'
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - alertmanager:9093
+
+# Rule files
+rule_files:
+  # - "alert_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Health check service metrics
+  - job_name: 'healthcheck'
+    static_configs:
+      - targets: ['healthcheck:9091']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Airflow metrics (if StatsD exporter is configured)
+  - job_name: 'airflow'
+    static_configs:
+      - targets: ['airflow-webserver:8080']
+    metrics_path: /admin/metrics
+    scrape_interval: 30s
+    # May need authentication
+    # basic_auth:
+    #   username: admin
+    #   password: admin
+
+  # Node exporter for system metrics (if deployed)
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
+
+  # PostgreSQL exporter (if deployed)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+
+  # Redis exporter (if deployed)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']

@@ -1,0 +1,60 @@
+# Investment Intelligence Dashboard Configuration
+# Copy this file to config.yaml and update with your settings
+
+# Demo Mode
+# Set to false to connect to actual databases
+demo_mode: true
+
+# Database Connections
+databases:
+  # Clinical Trial Signals Database
+  clinical_trials:
+    host: localhost
+    port: 5432
+    database: clinical_trials
+    user: postgres
+    password: your_password_here
+
+  # Patent Intelligence Database
+  patent_intelligence:
+    host: localhost
+    port: 5432
+    database: patent_intelligence
+    user: postgres
+    password: your_password_here
+
+  # Insider Activity + Hiring Signals Database
+  insider_hiring:
+    host: localhost
+    port: 5432
+    database: insider_signals
+    user: postgres
+    password: your_password_here
+
+# Alert Configuration (defaults)
+alerts:
+  enabled: true
+  bullish_threshold: 0.7
+  bearish_threshold: 0.3
+  min_confidence: 0.6
+  clinical_trials: true
+  patent_intelligence: true
+  insider_hiring: true
+  notification_email: ""
+
+# Combined Score Weights
+scoring:
+  clinical_trials_weight: 0.40
+  patent_intelligence_weight: 0.30
+  insider_hiring_weight: 0.30
+
+# Data Refresh Settings
+refresh:
+  auto_refresh: false
+  refresh_interval_minutes: 15
+
+# UI Settings
+ui:
+  theme: light
+  items_per_page: 25
+  show_demo_banner: true

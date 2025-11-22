@@ -1,0 +1,117 @@
+# Patent/IP Intelligence System Configuration
+# Copy this file to config.yaml and update values as needed
+
+# Database Configuration
+database:
+  host: localhost
+  port: 5432
+  name: patent_intelligence
+  user: patent_user
+  password: ${DB_PASSWORD}  # Set via environment variable
+  pool_size: 5
+  max_overflow: 10
+
+# Data Sources
+data_sources:
+  # FDA Orange Book
+  orange_book:
+    base_url: "https://www.fda.gov/drugs/drug-approvals-and-databases/orange-book-data-files"
+    data_url: "https://www.accessdata.fda.gov/cder/ob.zip"
+    update_frequency: monthly
+    enabled: true
+
+  # USPTO PatentsView API
+  uspto:
+    base_url: "https://api.patentsview.org/patents/query"
+    api_key: ${USPTO_API_KEY}  # Optional for basic queries
+    update_frequency: weekly
+    enabled: true
+    rate_limit: 45  # requests per minute
+
+  # FDA ANDA Data
+  fda_anda:
+    base_url: "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm"
+    update_frequency: monthly
+    enabled: true
+
+# ETL Settings
+etl:
+  # Number of top drugs to track by revenue
+  top_drugs_count: 50
+
+  # Batch sizes for processing
+  batch_size: 100
+
+  # Retry configuration
+  max_retries: 3
+  retry_delay_seconds: 30
+
+  # Data retention
+  data_retention_days: 365
+
+# Patent Cliff Calendar
+calendar:
+  # Forward view in months
+  forward_months: 12
+
+  # Certainty thresholds
+  high_certainty_threshold: 80
+  medium_certainty_threshold: 60
+
+  # Market opportunity thresholds (USD)
+  blockbuster_threshold: 1000000000  # $1B
+  high_value_threshold: 500000000    # $500M
+  medium_value_threshold: 100000000  # $100M
+
+# Scoring Model Weights
+scoring:
+  patent_expired_weight: 0.40
+  no_litigation_weight: 0.30
+  anda_approved_weight: 0.20
+  no_extension_weight: 0.10
+
+# Email Configuration
+email:
+  enabled: true
+  smtp_server: smtp.gmail.com
+  smtp_port: 587
+  use_tls: true
+  sender_email: ${EMAIL_SENDER}
+  sender_password: ${EMAIL_PASSWORD}
+  recipients:
+    - ${EMAIL_RECIPIENT_1}
+
+  # Digest settings
+  weekly_digest_day: monday  # Day of week for weekly digest
+  weekly_digest_hour: 8      # Hour (24h format)
+
+# Logging
+logging:
+  level: INFO
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} - {message}"
+  rotation: "10 MB"
+  retention: "1 week"
+  log_file: logs/patent_intelligence.log
+
+# Alert Thresholds
+alerts:
+  # Days before patent expiration to alert
+  patent_expiration_alert_days: 180
+
+  # Certainty score to trigger alert
+  min_certainty_for_alert: 60
+
+  # Minimum market opportunity for alert (USD)
+  min_opportunity_for_alert: 100000000
+
+# Cache Settings
+cache:
+  enabled: true
+  ttl_hours: 24
+  cache_dir: .cache
+
+# Feature Flags
+features:
+  enable_pacer_tracking: false  # Future feature
+  enable_ai_analysis: false     # Future feature
+  enable_sec_filing_tracking: false  # Future feature
