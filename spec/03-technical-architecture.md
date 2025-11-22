@@ -29,8 +29,8 @@ ResumeRank AI is a cloud-native, API-first SaaS platform built for speed, scalab
 │   Resume Parser          │  AI Screening         │  Batch Processor          │
 │   Service                │  Service              │  Service                  │
 │   ┌────────────────┐     │  ┌────────────────┐   │  ┌────────────────┐      │
-│   │ PDF Parse      │     │  │ Claude API     │   │  │ Queue Worker   │      │
-│   │ DOCX Parse     │────▶│  │ Prompt Eng     │   │  │ (BullMQ)       │      │
+│   │ PDF Parse      │     │  │ Multi-Provider │   │  │ Queue Worker   │      │
+│   │ DOCX Parse     │────▶│  │ AI Router      │   │  │ (BullMQ)       │      │
 │   │ Text Extract   │     │  │ Response Parse │   │  │ S3 Upload      │      │
 │   └────────────────┘     │  └────────────────┘   │  └────────────────┘      │
 └──────────────────────────┴──────────────────────┴───────────────────────────┘
@@ -51,8 +51,9 @@ ResumeRank AI is a cloud-native, API-first SaaS platform built for speed, scalab
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      EXTERNAL SERVICES                                      │
 ├──────────────────────────┬──────────────────────┬───────────────────────────┤
-│   Anthropic Claude       │  Stripe              │  PostHog / Analytics      │
-│   (AI Screening)         │  (Payments)          │  (Product Analytics)      │
+│   Multi-Model AI         │  Stripe              │  PostHog / Analytics      │
+│   (OpenAI, Google,       │  (Payments)          │  (Product Analytics)      │
+│    Anthropic)            │                      │                           │
 └──────────────────────────┴──────────────────────┴───────────────────────────┘
 ```
 
@@ -100,13 +101,17 @@ ResumeRank AI is a cloud-native, API-first SaaS platform built for speed, scalab
 
 | Component | Technology | Reasoning |
 |-----------|------------|-----------|
-| **Primary AI** | Claude Sonnet 4 | Best balance of speed, cost, accuracy |
-| **Fast Path** | Claude Haiku | 10x cheaper for simple resumes |
+| **Primary AI (65%)** | GPT-5 Nano | Ultra-low cost for simple screenings |
+| **Secondary AI (15%)** | Gemini 2.5 Flash | Fast, cost-effective for moderate complexity |
+| **Complex AI (20%)** | GPT-5 Mini | Deep analysis for senior/specialized roles |
+| **Premium AI** | Claude Sonnet 4 | Enterprise tier, highest accuracy |
+| **Fallback AI** | GPT-4o-mini | Batch processing, provider redundancy |
+| **Reasoning AI** | Gemini 2.5 Flash Thinking | Deep reasoning tasks when needed |
 | **PDF Parsing** | pdf-parse (npm) | Free, reliable, works on Node.js |
 | **DOCX Parsing** | mammoth.js | Free, converts to markdown/HTML |
 | **OCR (backup)** | Tesseract.js | Free, runs in browser or Node.js |
 
-**Cost:** $0.01-0.05/resume (varies by complexity)
+**Cost:** $0.00053-0.00263/resume (40x cheaper with intelligent routing)
 
 ### Infrastructure & DevOps
 
@@ -494,37 +499,157 @@ Format as JSON.
 ### Model Selection Logic
 
 ```typescript
-function selectAIModel(resume: ParsedResume, jobDescription: string): AIModel {
-  // Use fast/cheap model if:
-  if (
-    resume.confidence > 0.90 &&           // High parsing confidence
-    resume.format === 'standard' &&       // Standard resume format
-    jobDescription.length < 2000 &&       // Short job description
-    !jobDescription.includes('senior') && // Not senior role
-    !jobDescription.includes('lead')
-  ) {
-    return 'claude-haiku';  // $0.01/resume
-  }
+function selectModel(resume: ParsedResume, jobDescription: string): AIModel {
+  const complexity = calculateComplexity(resume, jobDescription)
 
-  // Use powerful model for complex cases
-  return 'claude-sonnet-4';  // $0.05/resume
+  if (complexity >= 7) return 'gpt-5-mini'       // 20% of cases
+  if (complexity >= 5) return 'gemini-2.5-flash' // 15% of cases
+  return 'gpt-5-nano'                            // 65% of cases
 }
 ```
 
 ### Cost Optimization
 
 **Estimated Costs:**
-| Scenario | Model | Cost/Resume | Resumes/Month | Total Cost |
-|----------|-------|-------------|---------------|------------|
-| **Early (80% Haiku)** | Mixed | $0.018 | 1,000 | $18 |
-| **Growth (60% Haiku)** | Mixed | $0.026 | 10,000 | $260 |
-| **Scale (40% Haiku)** | Mixed | $0.034 | 50,000 | $1,700 |
+| Scenario | Model Distribution | Cost/Resume | Resumes/Month | Total Cost |
+|----------|-------------------|-------------|---------------|------------|
+| **Early** | 65% nano, 15% flash, 20% mini | $0.00053 | 1,000 | $0.53 |
+| **Growth** | 65% nano, 15% flash, 20% mini | $0.00105 | 10,000 | $10.50 |
+| **Scale** | 65% nano, 15% flash, 20% mini | $0.00263 | 50,000 | $131.50 |
+
+**Cost Improvement:** 40x cheaper than previous architecture ($0.018-0.034 reduced to $0.00053-0.00263 per resume)
+
+**Intelligent Routing Distribution:**
+- **GPT-5 Nano (65%):** Simple, well-formatted resumes with standard job descriptions
+- **Gemini 2.5 Flash (15%):** Moderate complexity with some technical requirements
+- **GPT-5 Mini (20%):** Complex cases requiring deeper analysis (senior roles, specialized positions)
+
+**Semantic Caching Benefits:**
+- Cache hit rate: ~30-40% for similar job descriptions
+- Additional cost savings: 25-35% reduction in API calls
+- Faster response times for cached queries (~50ms vs ~2s)
 
 **Pricing Buffer:**
 - Charge $0.75/resume
-- Actual cost: $0.018-0.034
-- Gross margin: 95-98%
-- Buffer covers: infrastructure, support, R&D
+- Actual cost: $0.00053-0.00263
+- Gross margin: 99%+
+- Buffer covers: infrastructure, support, R&D, and future scaling
+
+## Multi-Model AI Architecture
+
+### Provider Abstraction Layer
+
+The system implements a unified provider abstraction layer that enables seamless switching between AI providers and models. This architecture decouples the application logic from specific AI vendor implementations.
+
+```typescript
+interface AIProvider {
+  name: string;
+  models: AIModel[];
+  screen(resume: ParsedResume, jobDescription: string): Promise<ScreeningResult>;
+  getTokenCost(model: string): { input: number; output: number };
+}
+
+class ProviderRegistry {
+  private providers: Map<string, AIProvider> = new Map();
+
+  register(provider: AIProvider): void;
+  getProvider(name: string): AIProvider;
+  selectOptimalProvider(complexity: number): AIProvider;
+}
+```
+
+**Benefits:**
+- Vendor-agnostic implementation
+- Easy addition of new providers
+- Automatic failover between providers
+- Cost optimization through intelligent routing
+
+### Supported Models
+
+| Model | Provider | Use Case | Input Cost | Output Cost | Avg Response |
+|-------|----------|----------|------------|-------------|--------------|
+| **GPT-5 Nano** | OpenAI | Simple screenings (65%) | $0.10/1M | $0.40/1M | ~800ms |
+| **GPT-5 Mini** | OpenAI | Complex analysis (20%) | $0.40/1M | $1.60/1M | ~1.2s |
+| **GPT-4o-mini** | OpenAI | Fallback / batch processing | $0.15/1M | $0.60/1M | ~1.0s |
+| **Gemini 2.5 Flash** | Google | Moderate complexity (15%) | $0.075/1M | $0.30/1M | ~600ms |
+| **Gemini 2.5 Flash Thinking** | Google | Deep reasoning tasks | $0.15/1M | $0.60/1M | ~1.5s |
+| **Claude Sonnet 4** | Anthropic | Premium / enterprise tier | $3.00/1M | $15.00/1M | ~1.8s |
+
+### Complexity Scoring Algorithm
+
+The system calculates a complexity score (1-10) to determine optimal model routing:
+
+```typescript
+interface ComplexityFactors {
+  resumeLength: number;        // Word count
+  jobDescriptionLength: number;
+  technicalTermDensity: number; // Technical terms per 100 words
+  seniorityLevel: 'entry' | 'mid' | 'senior' | 'executive';
+  industryComplexity: number;   // 1-5 scale
+  formatQuality: number;        // Parsing confidence 0-1
+}
+
+function calculateComplexity(resume: ParsedResume, jobDescription: string): number {
+  const factors: ComplexityFactors = extractFactors(resume, jobDescription);
+
+  let score = 1; // Base score
+
+  // Resume length impact (0-2 points)
+  if (factors.resumeLength > 1500) score += 2;
+  else if (factors.resumeLength > 800) score += 1;
+
+  // Job description complexity (0-2 points)
+  if (factors.jobDescriptionLength > 2000) score += 2;
+  else if (factors.jobDescriptionLength > 1000) score += 1;
+
+  // Technical density (0-2 points)
+  if (factors.technicalTermDensity > 15) score += 2;
+  else if (factors.technicalTermDensity > 8) score += 1;
+
+  // Seniority level (0-2 points)
+  const seniorityScores = { entry: 0, mid: 1, senior: 2, executive: 2 };
+  score += seniorityScores[factors.seniorityLevel];
+
+  // Industry complexity (0-1 point)
+  if (factors.industryComplexity >= 4) score += 1;
+
+  // Format quality penalty (0-1 point for poor parsing)
+  if (factors.formatQuality < 0.7) score += 1;
+
+  return Math.min(score, 10);
+}
+```
+
+**Complexity Thresholds:**
+| Score Range | Model Selection | Typical Cases |
+|-------------|-----------------|---------------|
+| 1-4 | GPT-5 Nano | Entry-level, standard format, short JD |
+| 5-6 | Gemini 2.5 Flash | Mid-level, moderate technical requirements |
+| 7-10 | GPT-5 Mini | Senior roles, complex JD, specialized industries |
+
+### Cost Comparison Table
+
+Monthly cost projections at different volumes:
+
+| Volume | GPT-5 Nano (65%) | Gemini 2.5 Flash (15%) | GPT-5 Mini (20%) | **Total Cost** | **Cost/Resume** |
+|--------|------------------|------------------------|------------------|----------------|-----------------|
+| **1,000** | $0.33 | $0.05 | $0.32 | **$0.70** | $0.00070 |
+| **10,000** | $3.25 | $0.49 | $3.20 | **$6.94** | $0.00069 |
+| **50,000** | $16.25 | $2.44 | $16.00 | **$34.69** | $0.00069 |
+| **100,000** | $32.50 | $4.88 | $32.00 | **$69.38** | $0.00069 |
+
+**Assumptions:**
+- Average ~1,500 tokens input, ~800 tokens output per screening
+- Semantic cache hit rate not included (adds additional 25-35% savings)
+- Enterprise tier (Claude Sonnet 4) not included in standard routing
+
+**Comparison with Previous Architecture:**
+| Volume | Old Cost ($0.018-0.034/resume) | New Cost | Savings |
+|--------|-------------------------------|----------|---------|
+| 1,000 | $18 - $34 | $0.70 | 96-98% |
+| 10,000 | $180 - $340 | $6.94 | 96-98% |
+| 50,000 | $900 - $1,700 | $34.69 | 96-98% |
+| 100,000 | $1,800 - $3,400 | $69.38 | 96-98% |
 
 ## Security & Compliance
 
