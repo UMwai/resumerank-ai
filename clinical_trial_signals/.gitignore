@@ -40,3 +40,12 @@ data/
 # Temporary files
 tmp/
 temp/
+
+# Test coverage
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# pytest
+.pytest_cache/

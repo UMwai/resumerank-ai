@@ -6,18 +6,30 @@ Collects and exposes metrics for monitoring:
 - Data quality metrics
 - Cost tracking
 - Resource utilization
+- SLA compliance
+- External API health
+- Data freshness
 
 Supports Prometheus exposition format.
+
+Enhanced for Phase 1 production readiness with:
+- Histogram buckets for latency tracking
+- Quantile calculations
+- Health check metrics
+- SLA tracking
+- Rate metrics
 """
 
 import logging
 import os
+import statistics
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from functools import wraps
 from threading import Lock
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -502,6 +514,469 @@ def get_prometheus_metrics() -> str:
     return get_registry().get_prometheus_metrics()
 
 
+# =============================================================================
+# Enhanced Metrics Classes for Production
+# =============================================================================
+
+
+class SLAMetrics:
+    """
+    SLA compliance metrics tracking.
+
+    Tracks:
+    - Execution time vs SLA targets
+    - Data freshness compliance
+    - Success rate targets
+    """
+
+    def __init__(self, registry: MetricsRegistry = None):
+        self.registry = registry or get_registry()
+        self._sla_targets: Dict[str, Dict[str, float]] = {}
+
+    def set_sla_target(
+        self,
+        pipeline_name: str,
+        execution_sla_seconds: float = 3600,
+        freshness_sla_hours: float = 24,
+        success_rate_target: float = 0.95,
+    ) -> None:
+        """Set SLA targets for a pipeline."""
+        self._sla_targets[pipeline_name] = {
+            "execution_sla_seconds": execution_sla_seconds,
+            "freshness_sla_hours": freshness_sla_hours,
+            "success_rate_target": success_rate_target,
+        }
+
+        self.registry.gauge(
+            "sla_execution_target_seconds",
+            execution_sla_seconds,
+            labels={"pipeline": pipeline_name},
+        )
+        self.registry.gauge(
+            "sla_freshness_target_hours",
+            freshness_sla_hours,
+            labels={"pipeline": pipeline_name},
+        )
+        self.registry.gauge(
+            "sla_success_rate_target",
+            success_rate_target,
+            labels={"pipeline": pipeline_name},
+        )
+
+    def record_sla_check(
+        self,
+        pipeline_name: str,
+        execution_seconds: float,
+        data_age_hours: float,
+        success_rate: float,
+    ) -> Dict[str, bool]:
+        """
+        Record SLA compliance check.
+
+        Returns dict of compliance status for each SLA type.
+        """
+        targets = self._sla_targets.get(pipeline_name, {})
+        labels = {"pipeline": pipeline_name}
+
+        results = {}
+
+        # Execution time SLA
+        exec_target = targets.get("execution_sla_seconds", 3600)
+        exec_compliant = execution_seconds <= exec_target
+        results["execution_compliant"] = exec_compliant
+        self.registry.gauge(
+            "sla_execution_compliance",
+            1 if exec_compliant else 0,
+            labels=labels,
+        )
+        self.registry.gauge(
+            "sla_execution_ratio",
+            execution_seconds / exec_target if exec_target > 0 else 0,
+            labels=labels,
+        )
+
+        # Data freshness SLA
+        fresh_target = targets.get("freshness_sla_hours", 24)
+        fresh_compliant = data_age_hours <= fresh_target
+        results["freshness_compliant"] = fresh_compliant
+        self.registry.gauge(
+            "sla_freshness_compliance",
+            1 if fresh_compliant else 0,
+            labels=labels,
+        )
+        self.registry.gauge(
+            "sla_freshness_ratio",
+            data_age_hours / fresh_target if fresh_target > 0 else 0,
+            labels=labels,
+        )
+
+        # Success rate SLA
+        rate_target = targets.get("success_rate_target", 0.95)
+        rate_compliant = success_rate >= rate_target
+        results["success_rate_compliant"] = rate_compliant
+        self.registry.gauge(
+            "sla_success_rate_compliance",
+            1 if rate_compliant else 0,
+            labels=labels,
+        )
+        self.registry.gauge(
+            "sla_success_rate_actual",
+            success_rate,
+            labels=labels,
+        )
+
+        # Overall compliance
+        overall = all(results.values())
+        self.registry.gauge(
+            "sla_overall_compliance",
+            1 if overall else 0,
+            labels=labels,
+        )
+
+        # Record violation if any
+        if not overall:
+            self.registry.counter(
+                "sla_violations_total",
+                labels=labels,
+            )
+
+        return results
+
+
+class DataQualityMetrics:
+    """
+    Data quality metrics for pipelines.
+
+    Tracks:
+    - Record completeness
+    - Data freshness
+    - Validation errors
+    - Duplicate rates
+    """
+
+    def __init__(self, registry: MetricsRegistry = None):
+        self.registry = registry or get_registry()
+
+    def record_data_quality(
+        self,
+        pipeline_name: str,
+        total_records: int,
+        valid_records: int,
+        null_fields: int = 0,
+        duplicate_records: int = 0,
+        validation_errors: int = 0,
+    ) -> Dict[str, float]:
+        """Record data quality metrics for a pipeline run."""
+        labels = {"pipeline": pipeline_name}
+
+        # Completeness rate
+        completeness = valid_records / total_records if total_records > 0 else 0
+        self.registry.gauge(
+            "data_quality_completeness_ratio",
+            completeness,
+            labels=labels,
+        )
+
+        # Null rate
+        null_rate = null_fields / (total_records * 10) if total_records > 0 else 0  # Assume 10 fields
+        self.registry.gauge(
+            "data_quality_null_rate",
+            null_rate,
+            labels=labels,
+        )
+
+        # Duplicate rate
+        dup_rate = duplicate_records / total_records if total_records > 0 else 0
+        self.registry.gauge(
+            "data_quality_duplicate_rate",
+            dup_rate,
+            labels=labels,
+        )
+
+        # Validation error rate
+        error_rate = validation_errors / total_records if total_records > 0 else 0
+        self.registry.gauge(
+            "data_quality_validation_error_rate",
+            error_rate,
+            labels=labels,
+        )
+
+        # Overall quality score (0-1)
+        quality_score = completeness * (1 - null_rate) * (1 - dup_rate) * (1 - error_rate)
+        self.registry.gauge(
+            "data_quality_score",
+            quality_score,
+            labels=labels,
+        )
+
+        # Record totals
+        self.registry.gauge("data_quality_total_records", total_records, labels=labels)
+        self.registry.gauge("data_quality_valid_records", valid_records, labels=labels)
+
+        return {
+            "completeness": completeness,
+            "null_rate": null_rate,
+            "duplicate_rate": dup_rate,
+            "validation_error_rate": error_rate,
+            "quality_score": quality_score,
+        }
+
+
+class APIHealthMetrics:
+    """
+    External API health and performance metrics.
+
+    Tracks:
+    - Response times
+    - Error rates
+    - Availability
+    - Rate limit status
+    """
+
+    def __init__(self, registry: MetricsRegistry = None):
+        self.registry = registry or get_registry()
+        self._api_stats: Dict[str, Dict[str, Any]] = defaultdict(
+            lambda: {"successes": 0, "failures": 0, "latencies": []}
+        )
+        self._lock = Lock()
+
+    def record_api_call(
+        self,
+        api_name: str,
+        success: bool,
+        latency_ms: float,
+        status_code: int = 200,
+        rate_limit_remaining: Optional[int] = None,
+    ) -> None:
+        """Record an API call."""
+        labels = {"api": api_name}
+
+        with self._lock:
+            stats = self._api_stats[api_name]
+            if success:
+                stats["successes"] += 1
+            else:
+                stats["failures"] += 1
+            stats["latencies"].append(latency_ms)
+            # Keep last 1000
+            if len(stats["latencies"]) > 1000:
+                stats["latencies"] = stats["latencies"][-1000:]
+
+        # Record metrics
+        self.registry.counter(
+            "api_requests_total",
+            labels={**labels, "status": "success" if success else "failure"},
+        )
+
+        self.registry.histogram("api_latency_ms", latency_ms, labels=labels)
+
+        self.registry.gauge(
+            "api_last_status_code",
+            status_code,
+            labels=labels,
+        )
+
+        if rate_limit_remaining is not None:
+            self.registry.gauge(
+                "api_rate_limit_remaining",
+                rate_limit_remaining,
+                labels=labels,
+            )
+
+        # Calculate and record availability
+        with self._lock:
+            stats = self._api_stats[api_name]
+            total = stats["successes"] + stats["failures"]
+            availability = stats["successes"] / total if total > 0 else 1.0
+
+        self.registry.gauge("api_availability", availability, labels=labels)
+
+    def get_api_stats(self, api_name: str) -> Dict[str, Any]:
+        """Get statistics for an API."""
+        with self._lock:
+            stats = self._api_stats[api_name]
+            latencies = stats["latencies"]
+
+            return {
+                "total_calls": stats["successes"] + stats["failures"],
+                "successes": stats["successes"],
+                "failures": stats["failures"],
+                "availability": stats["successes"] / (stats["successes"] + stats["failures"])
+                if (stats["successes"] + stats["failures"]) > 0
+                else 1.0,
+                "avg_latency_ms": statistics.mean(latencies) if latencies else 0,
+                "p50_latency_ms": statistics.median(latencies) if latencies else 0,
+                "p95_latency_ms": (
+                    sorted(latencies)[int(len(latencies) * 0.95)]
+                    if len(latencies) > 20
+                    else max(latencies) if latencies else 0
+                ),
+                "p99_latency_ms": (
+                    sorted(latencies)[int(len(latencies) * 0.99)]
+                    if len(latencies) > 100
+                    else max(latencies) if latencies else 0
+                ),
+            }
+
+
+class HealthCheckMetrics:
+    """
+    Health check metrics for system components.
+
+    Tracks:
+    - Component health status
+    - Check durations
+    - Failure counts
+    """
+
+    def __init__(self, registry: MetricsRegistry = None):
+        self.registry = registry or get_registry()
+
+    def record_health_check(
+        self,
+        component: str,
+        healthy: bool,
+        duration_seconds: float,
+        details: Optional[str] = None,
+    ) -> None:
+        """Record a health check result."""
+        labels = {"component": component}
+
+        self.registry.gauge(
+            "health_check_status",
+            1 if healthy else 0,
+            labels=labels,
+        )
+
+        self.registry.histogram(
+            "health_check_duration_seconds",
+            duration_seconds,
+            labels=labels,
+        )
+
+        self.registry.gauge(
+            "health_check_last_timestamp",
+            time.time(),
+            labels=labels,
+        )
+
+        if not healthy:
+            self.registry.counter("health_check_failures_total", labels=labels)
+
+
+# =============================================================================
+# Metric Decorators
+# =============================================================================
+
+
+def timed_metric(metric_name: str, labels: Optional[Dict[str, str]] = None):
+    """Decorator to automatically record execution time."""
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start = time.time()
+            try:
+                result = func(*args, **kwargs)
+                duration = time.time() - start
+                get_registry().histogram(
+                    metric_name,
+                    duration,
+                    labels=labels or {},
+                )
+                return result
+            except Exception as e:
+                duration = time.time() - start
+                get_registry().histogram(
+                    metric_name,
+                    duration,
+                    labels={**(labels or {}), "status": "error"},
+                )
+                raise
+
+        return wrapper
+
+    return decorator
+
+
+def counted_metric(metric_name: str, labels: Optional[Dict[str, str]] = None):
+    """Decorator to automatically count function calls."""
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                result = func(*args, **kwargs)
+                get_registry().counter(
+                    metric_name,
+                    labels={**(labels or {}), "status": "success"},
+                )
+                return result
+            except Exception as e:
+                get_registry().counter(
+                    metric_name,
+                    labels={**(labels or {}), "status": "error"},
+                )
+                raise
+
+        return wrapper
+
+    return decorator
+
+
+# =============================================================================
+# Convenience Functions
+# =============================================================================
+
+
+def record_sla_check(
+    pipeline_name: str,
+    execution_seconds: float,
+    data_age_hours: float,
+    success_rate: float,
+) -> Dict[str, bool]:
+    """Record SLA compliance check."""
+    metrics = SLAMetrics()
+    return metrics.record_sla_check(
+        pipeline_name, execution_seconds, data_age_hours, success_rate
+    )
+
+
+def record_data_quality(
+    pipeline_name: str,
+    total_records: int,
+    valid_records: int,
+    **kwargs,
+) -> Dict[str, float]:
+    """Record data quality metrics."""
+    metrics = DataQualityMetrics()
+    return metrics.record_data_quality(
+        pipeline_name, total_records, valid_records, **kwargs
+    )
+
+
+def record_api_health(
+    api_name: str,
+    success: bool,
+    latency_ms: float,
+    **kwargs,
+) -> None:
+    """Record API health metrics."""
+    metrics = APIHealthMetrics()
+    metrics.record_api_call(api_name, success, latency_ms, **kwargs)
+
+
+def record_health_check(
+    component: str,
+    healthy: bool,
+    duration_seconds: float,
+    details: Optional[str] = None,
+) -> None:
+    """Record health check result."""
+    metrics = HealthCheckMetrics()
+    metrics.record_health_check(component, healthy, duration_seconds, details)
+
+
 if __name__ == "__main__":
     # Example usage
     import json
@@ -526,8 +1001,32 @@ if __name__ == "__main__":
     record_cost("ec2_t3_medium", 24)  # 24 hours
     record_cost("s3_storage_gb", 10)  # 10 GB
 
+    # Record SLA check
+    sla_metrics = SLAMetrics()
+    sla_metrics.set_sla_target("clinical_trial_signals", 3600, 24, 0.95)
+    sla_result = record_sla_check("clinical_trial_signals", 120.5, 2.0, 0.98)
+    print(f"SLA compliance: {sla_result}")
+
+    # Record data quality
+    dq_result = record_data_quality(
+        "clinical_trial_signals",
+        total_records=100,
+        valid_records=98,
+        duplicate_records=2,
+        validation_errors=1,
+    )
+    print(f"Data quality: {dq_result}")
+
+    # Record API health
+    record_api_health("sec_edgar", True, 150.5, status_code=200)
+    record_api_health("clinicaltrials_gov", True, 250.3, status_code=200)
+
+    # Record health checks
+    record_health_check("database", True, 0.05)
+    record_health_check("redis", True, 0.02)
+
     # Print metrics
-    print("=== Prometheus Format ===")
+    print("\n=== Prometheus Format ===")
     print(get_prometheus_metrics())
 
     print("\n=== JSON Format ===")

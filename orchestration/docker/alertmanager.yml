@@ -1,0 +1,305 @@
+# Prometheus Alertmanager Configuration for Investment Signals Orchestration
+#
+# This configuration provides:
+# - Alert routing by severity (critical, warning, info)
+# - Multi-channel notifications (Email, Slack, PagerDuty)
+# - Alert grouping to prevent alert fatigue
+# - Inhibition rules to suppress redundant alerts
+# - Silence support for maintenance windows
+#
+# Environment Variables Required:
+# - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
+# - SLACK_WEBHOOK_URL, SLACK_CHANNEL
+# - PAGERDUTY_SERVICE_KEY (for critical alerts)
+#
+# Usage:
+#   docker-compose up -d alertmanager
+#   curl -X POST http://localhost:9093/-/reload  # Reload config
+
+global:
+  # SMTP configuration for email alerts
+  smtp_smarthost: '${SMTP_HOST:-smtp.gmail.com}:${SMTP_PORT:-587}'
+  smtp_from: '${SMTP_FROM:-alerts@investment-signals.local}'
+  smtp_auth_username: '${SMTP_USER:-}'
+  smtp_auth_password: '${SMTP_PASSWORD:-}'
+  smtp_require_tls: true
+
+  # Slack API URL (webhook)
+  slack_api_url: '${SLACK_WEBHOOK_URL:-}'
+
+  # PagerDuty URL
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+
+  # Default timeouts
+  resolve_timeout: 5m
+
+# Templates for custom alert formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route tree for alert routing
+route:
+  # Default receiver for unmatched alerts
+  receiver: 'default-receiver'
+
+  # Group alerts by these labels to reduce noise
+  group_by: ['alertname', 'severity', 'pipeline', 'dag_id']
+
+  # How long to wait before sending initial notification
+  group_wait: 30s
+
+  # How long to wait before sending notifications about new alerts in group
+  group_interval: 5m
+
+  # How long to wait before sending a notification again
+  repeat_interval: 4h
+
+  # Child routes - more specific routing rules
+  routes:
+    # Critical alerts - PagerDuty + Slack + Email
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 1h
+      continue: false
+
+    # Warning alerts - Slack + Email
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      continue: false
+
+    # Info alerts - Email only (batched)
+    - match:
+        severity: info
+      receiver: 'info-alerts'
+      group_wait: 5m
+      group_interval: 15m
+      repeat_interval: 12h
+      continue: false
+
+    # Pipeline-specific routing
+    - match:
+        pipeline: clinical_trial
+      receiver: 'clinical-trial-team'
+      continue: true
+
+    - match:
+        pipeline: patent_ip
+      receiver: 'patent-team'
+      continue: true
+
+    - match:
+        pipeline: insider_hiring
+      receiver: 'insider-team'
+      continue: true
+
+    # Cost alerts - finance team
+    - match:
+        alertname: high_api_cost
+      receiver: 'cost-alerts'
+      continue: true
+
+    - match:
+        alertname: budget_threshold_exceeded
+      receiver: 'cost-alerts'
+      continue: true
+
+# Inhibition rules - suppress redundant alerts
+inhibit_rules:
+  # If a critical alert is firing, suppress warning alerts for same alertname
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'dag_id']
+
+  # If a critical alert is firing, suppress info alerts for same alertname
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'info'
+    equal: ['alertname', 'dag_id']
+
+  # If warning alert is firing, suppress info alerts for same alertname
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    equal: ['alertname', 'dag_id']
+
+  # If the entire system is down, suppress individual component alerts
+  - source_match:
+      alertname: 'SystemDown'
+    target_match_re:
+      alertname: '.+'
+    equal: ['instance']
+
+# Receiver definitions
+receivers:
+  # Default receiver - email only
+  - name: 'default-receiver'
+    email_configs:
+      - to: '${ALERT_EMAIL_RECIPIENTS:-admin@example.com}'
+        send_resolved: true
+        headers:
+          Subject: '[Investment Signals] {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>Investment Signals Alert</h2>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Status:</strong> {{ .Status }}</p>
+          <hr>
+          {{ range .Alerts }}
+          <p><strong>Summary:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Labels:</strong> {{ .Labels }}</p>
+          <p><strong>Started:</strong> {{ .StartsAt }}</p>
+          {{ if .EndsAt }}<p><strong>Ended:</strong> {{ .EndsAt }}</p>{{ end }}
+          <hr>
+          {{ end }}
+          <p><a href="{{ .ExternalURL }}">View in Alertmanager</a></p>
+
+  # Critical alerts - PagerDuty + Slack + Email
+  - name: 'critical-alerts'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY:-}'
+        severity: critical
+        description: '{{ .CommonAnnotations.summary }}'
+        details:
+          alertname: '{{ .GroupLabels.alertname }}'
+          pipeline: '{{ .CommonLabels.pipeline }}'
+          dag_id: '{{ .CommonLabels.dag_id }}'
+          description: '{{ .CommonAnnotations.description }}'
+        send_resolved: true
+
+    slack_configs:
+      - channel: '${SLACK_CRITICAL_CHANNEL:-#alerts-critical}'
+        username: 'Investment Signals Alert'
+        icon_emoji: ':rotating_light:'
+        send_resolved: true
+        title: '{{ if eq .Status "firing" }}CRITICAL ALERT{{ else }}RESOLVED{{ end }}'
+        text: |
+          *Alert:* {{ .GroupLabels.alertname }}
+          *Severity:* {{ .CommonLabels.severity }}
+          *Pipeline:* {{ .CommonLabels.pipeline }}
+          *Status:* {{ .Status }}
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Runbook:* {{ .Annotations.runbook_url }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        actions:
+          - type: button
+            text: 'View Alert'
+            url: '{{ .ExternalURL }}'
+          - type: button
+            text: 'Runbook'
+            url: '{{ (index .Alerts 0).Annotations.runbook_url }}'
+
+    email_configs:
+      - to: '${ALERT_EMAIL_RECIPIENTS:-admin@example.com}'
+        send_resolved: true
+        headers:
+          Subject: '[CRITICAL] {{ .GroupLabels.alertname }} - Investment Signals'
+          Priority: 'urgent'
+          X-Priority: '1'
+
+  # Warning alerts - Slack + Email
+  - name: 'warning-alerts'
+    slack_configs:
+      - channel: '${SLACK_WARNING_CHANNEL:-#alerts-warning}'
+        username: 'Investment Signals Alert'
+        icon_emoji: ':warning:'
+        send_resolved: true
+        title: '{{ if eq .Status "firing" }}WARNING{{ else }}RESOLVED{{ end }}'
+        text: |
+          *Alert:* {{ .GroupLabels.alertname }}
+          *Pipeline:* {{ .CommonLabels.pipeline }}
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
+
+    email_configs:
+      - to: '${ALERT_EMAIL_RECIPIENTS:-admin@example.com}'
+        send_resolved: true
+        headers:
+          Subject: '[WARNING] {{ .GroupLabels.alertname }} - Investment Signals'
+
+  # Info alerts - Email only (batched)
+  - name: 'info-alerts'
+    email_configs:
+      - to: '${ALERT_EMAIL_RECIPIENTS:-admin@example.com}'
+        send_resolved: false
+        headers:
+          Subject: '[INFO] {{ .GroupLabels.alertname }} - Investment Signals'
+
+  # Pipeline-specific receivers
+  - name: 'clinical-trial-team'
+    slack_configs:
+      - channel: '${SLACK_CLINICAL_CHANNEL:-#clinical-trials}'
+        username: 'Clinical Trial Signals'
+        icon_emoji: ':pill:'
+        send_resolved: true
+        text: |
+          *Pipeline:* Clinical Trial Signals
+          *Alert:* {{ .GroupLabels.alertname }}
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          {{ end }}
+
+  - name: 'patent-team'
+    slack_configs:
+      - channel: '${SLACK_PATENT_CHANNEL:-#patent-intelligence}'
+        username: 'Patent Intelligence'
+        icon_emoji: ':page_facing_up:'
+        send_resolved: true
+        text: |
+          *Pipeline:* Patent Intelligence
+          *Alert:* {{ .GroupLabels.alertname }}
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          {{ end }}
+
+  - name: 'insider-team'
+    slack_configs:
+      - channel: '${SLACK_INSIDER_CHANNEL:-#insider-signals}'
+        username: 'Insider/Hiring Signals'
+        icon_emoji: ':briefcase:'
+        send_resolved: true
+        text: |
+          *Pipeline:* Insider/Hiring Signals
+          *Alert:* {{ .GroupLabels.alertname }}
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          {{ end }}
+
+  # Cost alerts - finance/ops team
+  - name: 'cost-alerts'
+    slack_configs:
+      - channel: '${SLACK_COST_CHANNEL:-#finance-alerts}'
+        username: 'Cost Monitor'
+        icon_emoji: ':dollar:'
+        send_resolved: true
+        title: 'Cost Alert'
+        text: |
+          *Alert:* {{ .GroupLabels.alertname }}
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Current Cost:* {{ .Annotations.current_cost }}
+          *Threshold:* {{ .Annotations.threshold }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
+
+    email_configs:
+      - to: '${COST_ALERT_RECIPIENTS:-finance@example.com}'
+        send_resolved: true
+        headers:
+          Subject: '[COST ALERT] {{ .GroupLabels.alertname }} - Investment Signals'

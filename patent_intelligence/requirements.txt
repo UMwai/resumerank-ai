@@ -4,6 +4,7 @@
 # Database
 psycopg2-binary>=2.9.9
 sqlalchemy>=2.0.23
+alembic>=1.13.0
 
 # HTTP requests and API interactions
 requests>=2.31.0
@@ -22,7 +23,7 @@ python-dotenv>=1.0.0
 pyyaml>=6.0.1
 
 # Email
-smtplib  # built-in
+# smtplib  # built-in
 email-validator>=2.1.0
 
 # Scheduling
@@ -43,15 +44,17 @@ rich>=13.7.0
 pytest>=7.4.3
 pytest-asyncio>=0.21.1
 pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+responses>=0.24.1
 
 # Type hints
 typing-extensions>=4.9.0
 
-# HTML parsing (for web scraping fallback)
+# HTML parsing (for web scraping)
 beautifulsoup4>=4.12.2
 lxml>=4.9.4
 
-# CSV handling (enhanced)
+# CSV/Excel handling
 openpyxl>=3.1.2
 
 # Rate limiting
@@ -62,3 +65,52 @@ tenacity>=8.2.3
 
 # JSON handling
 orjson>=3.9.10
+
+# Code quality (dev)
+black>=23.12.0
+isort>=5.13.0
+flake8>=6.1.0
+mypy>=1.8.0
+
+# Security scanning (dev)
+bandit>=1.7.6
+safety>=2.3.5
+
+# Fuzzy string matching (for entity resolution)
+# Using built-in difflib, but these are alternatives if needed:
+# fuzzywuzzy>=0.18.0
+# python-Levenshtein>=0.23.0
+# rapidfuzz>=3.6.1
+
+# Database migrations
+# alembic already included above
+
+# Background tasks
+celery>=5.3.4
+redis>=5.0.1
+
+# Caching
+diskcache>=5.6.3
+
+# Environment
+environs>=10.3.0
+
+# Metrics and monitoring (optional)
+prometheus-client>=0.19.0
+
+# API framework (for future REST API)
+fastapi>=0.108.0
+uvicorn>=0.25.0
+
+# Phase 2: AI and ML Features
+# Anthropic Claude API (for patent claim analysis)
+anthropic>=0.18.0
+
+# Machine Learning (for litigation prediction and scoring)
+scikit-learn>=1.4.0
+
+# RSS Feed Parsing (for FDA monitoring)
+feedparser>=6.0.10
+
+# Slack Integration (for alerts)
+slack-sdk>=3.27.0

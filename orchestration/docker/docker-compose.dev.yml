@@ -1,0 +1,205 @@
+# Investment Signals Orchestration - Development Docker Compose
+#
+# This configuration extends docker-compose.yml for local development with:
+# - Hot-reloading for DAGs and Python code
+# - Debug mode enabled
+# - Lower resource requirements
+# - Development-friendly settings
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#   docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs -f
+
+version: '3.8'
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+    args:
+      - DEV_MODE=true
+  environment: &airflow-common-env
+    # Core Airflow settings for development
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+
+    # Development settings
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 5
+    AIRFLOW__CORE__MIN_SERIALIZED_DAG_UPDATE_INTERVAL: 5
+    AIRFLOW__CORE__MIN_FILE_PROCESS_INTERVAL: 5
+    AIRFLOW__WEBSERVER__RELOAD_ON_PLUGIN_CHANGE: 'true'
+    AIRFLOW__WEBSERVER__WORKERS: 1
+    AIRFLOW__SCHEDULER__PARSING_PROCESSES: 1
+
+    # Debug settings
+    AIRFLOW__LOGGING__LOGGING_LEVEL: DEBUG
+    AIRFLOW__WEBSERVER__LOG_FETCH_TIMEOUT_SEC: 30
+
+    # Project configuration
+    PROJECT_ROOT: /opt/airflow/project
+    ORCHESTRATION_ENV: dev
+
+    # Database for signals
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_NAME: investment_signals
+    DB_USER: signals
+    DB_PASSWORD: signals_password
+
+    # Disable alerting in dev
+    EMAIL_ALERTS_ENABLED: 'false'
+    SLACK_ALERTS_ENABLED: 'false'
+    SMS_ALERTS_ENABLED: 'false'
+
+  volumes:
+    # Mount DAGs with hot-reload
+    - ../dags:/opt/airflow/dags:cached
+    - ../logs:/opt/airflow/logs:delegated
+    - ../plugins:/opt/airflow/plugins:cached
+
+    # Mount project code for development
+    - ../../:/opt/airflow/project:cached
+
+    # Mount orchestration modules directly
+    - ../alerts:/opt/airflow/orchestration/alerts:cached
+    - ../monitoring:/opt/airflow/orchestration/monitoring:cached
+    - ../config:/opt/airflow/orchestration/config:cached
+
+    # Persistent data
+    - airflow-data:/opt/airflow/data
+
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  # PostgreSQL Database (reduced resources for dev)
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    # Resource limits for development
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # Airflow All-in-One (Webserver + Scheduler in LocalExecutor mode)
+  airflow:
+    <<: *airflow-common
+    command: >
+      bash -c "
+        airflow db migrate &&
+        airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
+        airflow scheduler &
+        exec airflow webserver
+      "
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  # Prometheus for metrics (optional in dev)
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=3d'
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # Grafana for dashboards (optional in dev)
+  grafana:
+    image: grafana/grafana:10.0.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_LOG_LEVEL: warn
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # Health check service
+  healthcheck:
+    build:
+      context: .
+      dockerfile: Dockerfile.healthcheck
+    environment:
+      DATABASE_URL: postgresql://signals:signals_password@postgres:5432/investment_signals
+      AIRFLOW_WEBSERVER_URL: http://airflow:8080
+      DEBUG: 'true'
+    ports:
+      - "9091:9091"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  postgres-db-volume:
+  airflow-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  default:
+    name: investment-signals-dev

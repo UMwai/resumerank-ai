@@ -1,0 +1,359 @@
+# Prometheus Alert Rules for Investment Signals Orchestration
+#
+# Alert severity levels:
+# - critical: Immediate action required, pages on-call
+# - warning: Attention needed within business hours
+# - info: Informational, logged but not paged
+#
+# Each alert includes:
+# - summary: Brief description
+# - description: Detailed information
+# - runbook_url: Link to remediation steps
+
+groups:
+  # =============================================================================
+  # Pipeline Health Alerts
+  # =============================================================================
+  - name: pipeline_health
+    interval: 30s
+    rules:
+      # DAG Failure Alert
+      - alert: DAGExecutionFailed
+        expr: airflow_dag_run_failed_count > 0
+        for: 5m
+        labels:
+          severity: critical
+          pipeline: '{{ $labels.dag_id }}'
+        annotations:
+          summary: 'DAG {{ $labels.dag_id }} has failed executions'
+          description: 'DAG {{ $labels.dag_id }} has had {{ $value }} failed executions in the last 5 minutes. Immediate investigation required.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/dag-failure'
+
+      # DAG Running Too Long
+      - alert: DAGRunningTooLong
+        expr: airflow_dag_run_duration_seconds > 7200
+        for: 5m
+        labels:
+          severity: warning
+          pipeline: '{{ $labels.dag_id }}'
+        annotations:
+          summary: 'DAG {{ $labels.dag_id }} running longer than expected'
+          description: 'DAG {{ $labels.dag_id }} has been running for {{ $value | humanizeDuration }}. Expected max runtime is 2 hours.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/long-running-dag'
+
+      # Task Failure Rate High
+      - alert: HighTaskFailureRate
+        expr: |
+          rate(airflow_task_fail_count[1h]) /
+          (rate(airflow_task_success_count[1h]) + rate(airflow_task_fail_count[1h])) > 0.2
+        for: 15m
+        labels:
+          severity: warning
+          pipeline: '{{ $labels.dag_id }}'
+        annotations:
+          summary: 'High task failure rate in {{ $labels.dag_id }}'
+          description: 'Task failure rate is {{ $value | humanizePercentage }} in the last hour. This exceeds the 20% threshold.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/task-failure'
+
+      # No DAG runs in expected window
+      - alert: MissingScheduledDAGRun
+        expr: |
+          time() - airflow_dag_last_run_timestamp > 86400
+        for: 1h
+        labels:
+          severity: warning
+          pipeline: '{{ $labels.dag_id }}'
+        annotations:
+          summary: 'No recent runs for DAG {{ $labels.dag_id }}'
+          description: 'DAG {{ $labels.dag_id }} has not run in over 24 hours. Last run was {{ $value | humanizeDuration }} ago.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/missing-dag-run'
+
+  # =============================================================================
+  # SLA Monitoring Alerts
+  # =============================================================================
+  - name: sla_monitoring
+    interval: 1m
+    rules:
+      # Clinical Trial Pipeline SLA
+      - alert: ClinicalTrialSLABreach
+        expr: |
+          (investment_signals_pipeline_duration_seconds{pipeline="clinical_trial"} > 7200)
+          or (time() - investment_signals_pipeline_last_success_timestamp{pipeline="clinical_trial"} > 86400)
+        for: 5m
+        labels:
+          severity: critical
+          pipeline: clinical_trial
+        annotations:
+          summary: 'Clinical Trial pipeline SLA breach'
+          description: 'Clinical Trial pipeline is either taking too long (>2h) or has not completed successfully in 24 hours.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/clinical-trial-sla'
+
+      # Patent Intelligence Pipeline SLA
+      - alert: PatentIntelligenceSLABreach
+        expr: |
+          (investment_signals_pipeline_duration_seconds{pipeline="patent_ip"} > 14400)
+          or (time() - investment_signals_pipeline_last_success_timestamp{pipeline="patent_ip"} > 604800)
+        for: 5m
+        labels:
+          severity: critical
+          pipeline: patent_ip
+        annotations:
+          summary: 'Patent Intelligence pipeline SLA breach'
+          description: 'Patent Intelligence pipeline is either taking too long (>4h) or has not completed successfully in 7 days.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/patent-sla'
+
+      # Insider/Hiring Pipeline SLA
+      - alert: InsiderHiringSLABreach
+        expr: |
+          (investment_signals_pipeline_duration_seconds{pipeline="insider_hiring"} > 3600)
+          or (time() - investment_signals_pipeline_last_success_timestamp{pipeline="insider_hiring"} > 86400)
+        for: 5m
+        labels:
+          severity: critical
+          pipeline: insider_hiring
+        annotations:
+          summary: 'Insider/Hiring pipeline SLA breach'
+          description: 'Insider/Hiring pipeline is either taking too long (>1h) or has not completed successfully in 24 hours.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/insider-sla'
+
+  # =============================================================================
+  # Data Quality Alerts
+  # =============================================================================
+  - name: data_quality
+    interval: 1m
+    rules:
+      # Low Signal Count
+      - alert: LowSignalCount
+        expr: investment_signals_signals_detected_total < 1
+        for: 24h
+        labels:
+          severity: warning
+          pipeline: '{{ $labels.pipeline }}'
+        annotations:
+          summary: 'No signals detected for {{ $labels.pipeline }}'
+          description: 'Pipeline {{ $labels.pipeline }} has not detected any signals in 24 hours. This may indicate a data source issue.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/low-signals'
+
+      # Data Freshness Issue
+      - alert: StaleData
+        expr: time() - investment_signals_data_freshness_timestamp > 172800
+        for: 1h
+        labels:
+          severity: warning
+          pipeline: '{{ $labels.pipeline }}'
+        annotations:
+          summary: 'Stale data in {{ $labels.pipeline }}'
+          description: 'Data for {{ $labels.pipeline }} is older than 48 hours. Last update was {{ $value | humanizeDuration }} ago.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/stale-data'
+
+      # High Error Rate
+      - alert: HighDataQualityErrorRate
+        expr: |
+          investment_signals_data_quality_errors_total /
+          investment_signals_records_processed_total > 0.05
+        for: 15m
+        labels:
+          severity: warning
+          pipeline: '{{ $labels.pipeline }}'
+        annotations:
+          summary: 'High data quality error rate in {{ $labels.pipeline }}'
+          description: 'Data quality error rate is {{ $value | humanizePercentage }}. This exceeds the 5% threshold.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/data-quality-errors'
+
+  # =============================================================================
+  # Cost Monitoring Alerts
+  # =============================================================================
+  - name: cost_monitoring
+    interval: 5m
+    rules:
+      # Daily API Cost Threshold
+      - alert: HighDailyAPICost
+        expr: sum(increase(investment_signals_api_cost_dollars_total[24h])) > 50
+        for: 5m
+        labels:
+          severity: warning
+          alertname: high_api_cost
+        annotations:
+          summary: 'Daily API costs exceed $50 threshold'
+          description: 'Total API costs in the last 24 hours: ${{ $value | printf "%.2f" }}. Budget threshold is $50/day.'
+          current_cost: '${{ $value | printf "%.2f" }}'
+          threshold: '$50'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/api-cost'
+
+      # Weekly Budget Alert
+      - alert: WeeklyBudgetThresholdExceeded
+        expr: sum(increase(investment_signals_api_cost_dollars_total[7d])) > 300
+        for: 5m
+        labels:
+          severity: critical
+          alertname: budget_threshold_exceeded
+        annotations:
+          summary: 'Weekly budget threshold exceeded'
+          description: 'Total costs in the last 7 days: ${{ $value | printf "%.2f" }}. Weekly budget is $300.'
+          current_cost: '${{ $value | printf "%.2f" }}'
+          threshold: '$300'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/budget-exceeded'
+
+      # Monthly Projection Alert
+      - alert: MonthlyBudgetProjectionHigh
+        expr: |
+          (sum(increase(investment_signals_api_cost_dollars_total[7d])) / 7) * 30 > 800
+        for: 1h
+        labels:
+          severity: warning
+          alertname: budget_threshold_exceeded
+        annotations:
+          summary: 'Monthly cost projection exceeds budget'
+          description: 'Projected monthly costs: ${{ $value | printf "%.2f" }}. Monthly budget target is $800.'
+          current_cost: '${{ $value | printf "%.2f" }}'
+          threshold: '$800'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/budget-projection'
+
+      # Anthropic API Cost Spike
+      - alert: AnthropicAPICostSpike
+        expr: |
+          rate(investment_signals_api_cost_dollars_total{provider="anthropic"}[1h]) >
+          2 * avg_over_time(rate(investment_signals_api_cost_dollars_total{provider="anthropic"}[1h])[24h:1h])
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Anthropic API cost spike detected'
+          description: 'Anthropic API costs are 2x higher than the 24-hour average. Current rate: ${{ $value | printf "%.2f" }}/hour.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/api-spike'
+
+      # SEC API Rate Limit Warning
+      - alert: SECAPIRateLimitApproaching
+        expr: investment_signals_api_requests_total{provider="sec"} > 8
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Approaching SEC API rate limit'
+          description: 'SEC API requests: {{ $value }}/second. Rate limit is 10/second. Consider slowing down requests.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/sec-rate-limit'
+
+  # =============================================================================
+  # Infrastructure Alerts
+  # =============================================================================
+  - name: infrastructure
+    interval: 30s
+    rules:
+      # Airflow Webserver Down
+      - alert: AirflowWebserverDown
+        expr: up{job="airflow"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Airflow webserver is down'
+          description: 'Airflow webserver has been unreachable for more than 2 minutes.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/airflow-down'
+
+      # Health Check Service Down
+      - alert: HealthCheckServiceDown
+        expr: up{job="healthcheck"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Health check service is down'
+          description: 'Health check service has been unreachable for more than 2 minutes.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/healthcheck-down'
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionErrors
+        expr: investment_signals_db_connection_errors_total > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Database connection errors detected'
+          description: '{{ $value }} database connection errors in the last 5 minutes.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/db-errors'
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'High memory usage in {{ $labels.container_name }}'
+          description: 'Container {{ $labels.container_name }} is using {{ $value | humanizePercentage }} of available memory.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/high-memory'
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'High CPU usage in {{ $labels.container_name }}'
+          description: 'Container {{ $labels.container_name }} CPU usage is {{ $value | humanizePercentage }}.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/high-cpu'
+
+      # Disk Space Low
+      - alert: LowDiskSpace
+        expr: node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Low disk space on {{ $labels.device }}'
+          description: 'Only {{ $value | humanizePercentage }} disk space remaining on {{ $labels.device }}.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/low-disk'
+
+  # =============================================================================
+  # External Service Alerts
+  # =============================================================================
+  - name: external_services
+    interval: 1m
+    rules:
+      # ClinicalTrials.gov API Down
+      - alert: ClinicalTrialsAPIDown
+        expr: investment_signals_external_api_up{service="clinicaltrials_gov"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          pipeline: clinical_trial
+        annotations:
+          summary: 'ClinicalTrials.gov API is unreachable'
+          description: 'Unable to reach ClinicalTrials.gov API for more than 5 minutes.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/clinicaltrials-api'
+
+      # SEC EDGAR API Down
+      - alert: SECEDGARAPIDown
+        expr: investment_signals_external_api_up{service="sec_edgar"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          pipeline: insider_hiring
+        annotations:
+          summary: 'SEC EDGAR API is unreachable'
+          description: 'Unable to reach SEC EDGAR API for more than 5 minutes.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/sec-api'
+
+      # FDA Orange Book API Down
+      - alert: FDAOrangeBookAPIDown
+        expr: investment_signals_external_api_up{service="fda_orange_book"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          pipeline: patent_ip
+        annotations:
+          summary: 'FDA Orange Book API is unreachable'
+          description: 'Unable to reach FDA Orange Book API for more than 5 minutes.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/fda-api'
+
+      # High API Latency
+      - alert: HighAPILatency
+        expr: investment_signals_api_latency_seconds > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'High latency for {{ $labels.provider }} API'
+          description: 'API latency for {{ $labels.provider }} is {{ $value | humanizeDuration }}. This may impact pipeline performance.'
+          runbook_url: 'https://github.com/UMwai/investment-orchestration/wiki/runbooks/high-latency'

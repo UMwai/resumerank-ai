@@ -1,17 +1,23 @@
 #!/bin/bash
+# =============================================================================
+# Investment Signals Orchestration - Cross-Platform Setup Script
+# =============================================================================
 #
-# Investment Signals Orchestration - Setup Script
-#
-# This script sets up the local development environment:
-# 1. Creates necessary directories
-# 2. Copies environment template
-# 3. Initializes the database
-# 4. Starts Docker services
+# This script sets up the local development environment for the Investment
+# Signals Orchestration system on Mac, Linux, and Windows (Git Bash/WSL).
 #
 # Usage:
 #   ./setup.sh              # Full setup
+#   ./setup.sh --dev        # Development mode (lighter weight)
 #   ./setup.sh --docker     # Start Docker only
 #   ./setup.sh --db-init    # Initialize database only
+#   ./setup.sh --check      # Check prerequisites only
+#   ./setup.sh --clean      # Clean up and reset
+#   ./setup.sh --status     # Show service status
+#   ./setup.sh --logs       # View logs
+#   ./setup.sh --stop       # Stop all services
+#
+# =============================================================================
 
 set -e
 
@@ -19,6 +25,7 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Script directory
@@ -26,9 +33,53 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 DOCKER_DIR="$PROJECT_ROOT/docker"
 
+# Default settings
+DEV_MODE=false
+SKIP_BUILD=false
+
+# Detect operating system
+detect_os() {
+    case "$(uname -s)" in
+        Darwin*)
+            OS="macos"
+            ;;
+        Linux*)
+            if grep -q Microsoft /proc/version 2>/dev/null; then
+                OS="wsl"
+            else
+                OS="linux"
+            fi
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            OS="windows"
+            ;;
+        *)
+            OS="unknown"
+            ;;
+    esac
+    echo "$OS"
+}
+
+# Get Docker Compose command (v1 or v2)
+get_compose_cmd() {
+    if command -v docker-compose >/dev/null 2>&1; then
+        echo "docker-compose"
+    elif docker compose version >/dev/null 2>&1; then
+        echo "docker compose"
+    else
+        echo ""
+    fi
+}
+
+DETECTED_OS=$(detect_os)
+COMPOSE_CMD=$(get_compose_cmd)
+
 echo -e "${GREEN}==================================================${NC}"
 echo -e "${GREEN}Investment Signals Orchestration - Setup${NC}"
 echo -e "${GREEN}==================================================${NC}"
+echo -e "${BLUE}Operating System: $DETECTED_OS${NC}"
+echo -e "${BLUE}Project Root: $PROJECT_ROOT${NC}"
+echo ""
 
 # Function to check if command exists
 command_exists() {
@@ -38,27 +89,79 @@ command_exists() {
 # Check prerequisites
 check_prerequisites() {
     echo -e "\n${YELLOW}Checking prerequisites...${NC}"
+    local all_ok=true
 
-    if ! command_exists docker; then
-        echo -e "${RED}Error: Docker is not installed${NC}"
-        echo "Please install Docker: https://docs.docker.com/get-docker/"
-        exit 1
+    # Check Docker
+    if command_exists docker; then
+        docker_version=$(docker --version 2>/dev/null | awk '{print $3}' | tr -d ',')
+        echo -e "${GREEN}[OK]${NC} Docker: $docker_version"
+    else
+        echo -e "${RED}[ERROR]${NC} Docker is not installed"
+        echo "       Install from: https://docs.docker.com/get-docker/"
+        all_ok=false
     fi
 
-    if ! command_exists docker-compose; then
-        echo -e "${RED}Error: Docker Compose is not installed${NC}"
-        echo "Please install Docker Compose: https://docs.docker.com/compose/install/"
-        exit 1
+    # Check Docker Compose
+    if [ -n "$COMPOSE_CMD" ]; then
+        compose_version=$($COMPOSE_CMD version 2>/dev/null | head -1 | awk '{print $NF}')
+        echo -e "${GREEN}[OK]${NC} Docker Compose: $compose_version"
+    else
+        echo -e "${RED}[ERROR]${NC} Docker Compose is not installed"
+        echo "       Install from: https://docs.docker.com/compose/install/"
+        all_ok=false
     fi
 
     # Check if Docker daemon is running
-    if ! docker info >/dev/null 2>&1; then
-        echo -e "${RED}Error: Docker daemon is not running${NC}"
-        echo "Please start Docker and try again"
-        exit 1
+    if docker info >/dev/null 2>&1; then
+        echo -e "${GREEN}[OK]${NC} Docker daemon is running"
+    else
+        echo -e "${RED}[ERROR]${NC} Docker daemon is not running"
+        echo "       Please start Docker Desktop or the Docker daemon"
+        all_ok=false
     fi
 
-    echo -e "${GREEN}Prerequisites OK${NC}"
+    # Check available memory
+    case "$DETECTED_OS" in
+        macos)
+            total_mem=$(sysctl -n hw.memsize 2>/dev/null || echo 0)
+            total_mem_gb=$((total_mem / 1024 / 1024 / 1024))
+            ;;
+        linux|wsl)
+            total_mem=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}' || echo 0)
+            total_mem_gb=$((total_mem / 1024 / 1024))
+            ;;
+        *)
+            total_mem_gb=0
+            ;;
+    esac
+
+    if [ "$total_mem_gb" -ge 4 ]; then
+        echo -e "${GREEN}[OK]${NC} Memory: ${total_mem_gb}GB available"
+    elif [ "$total_mem_gb" -gt 0 ]; then
+        echo -e "${YELLOW}[WARN]${NC} Memory: ${total_mem_gb}GB (4GB+ recommended)"
+    fi
+
+    # Check required ports
+    local ports_in_use=""
+    for port in 8080 3000 9090 9091 5432; do
+        if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+            ports_in_use="$ports_in_use $port"
+        fi
+    done
+
+    if [ -z "$ports_in_use" ]; then
+        echo -e "${GREEN}[OK]${NC} Required ports are available"
+    else
+        echo -e "${YELLOW}[WARN]${NC} Ports in use:$ports_in_use"
+    fi
+
+    if [ "$all_ok" = true ]; then
+        echo -e "\n${GREEN}All prerequisites met!${NC}"
+        return 0
+    else
+        echo -e "\n${RED}Some prerequisites are missing. Please fix and try again.${NC}"
+        return 1
+    fi
 }
 
 # Create directories
@@ -188,32 +291,107 @@ print_status() {
     echo "  3. Configure alerting (Slack, Email, SMS)"
 }
 
+# Clean up environment
+cleanup() {
+    echo -e "\n${YELLOW}Cleaning up...${NC}"
+    cd "$DOCKER_DIR"
+
+    echo -e "${YELLOW}This will stop all services and optionally remove data.${NC}"
+    read -p "Continue? (y/N) " -n 1 -r
+    echo ""
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Stopping services..."
+        $COMPOSE_CMD down 2>/dev/null || true
+
+        read -p "Remove volumes (all data will be lost)? (y/N) " -n 1 -r
+        echo ""
+
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "Removing volumes..."
+            $COMPOSE_CMD down -v 2>/dev/null || true
+            echo -e "${GREEN}Volumes removed${NC}"
+        fi
+
+        rm -f .env 2>/dev/null || true
+        echo -e "${GREEN}Cleanup complete${NC}"
+    else
+        echo "Cleanup cancelled"
+    fi
+}
+
+# Start in development mode
+start_dev() {
+    echo -e "\n${YELLOW}Starting in development mode...${NC}"
+    cd "$DOCKER_DIR"
+
+    # Use development compose file
+    if [ -f "docker-compose.dev.yml" ]; then
+        $COMPOSE_CMD -f docker-compose.yml -f docker-compose.dev.yml up -d
+    else
+        $COMPOSE_CMD up -d
+    fi
+
+    echo -e "${GREEN}Development environment started${NC}"
+}
+
 # Main function
 main() {
     case "${1:-full}" in
+        --dev)
+            check_prerequisites || exit 1
+            create_directories
+            setup_env
+            set_airflow_uid
+            DEV_MODE=true
+            start_dev
+            wait_for_airflow
+            print_status
+            ;;
         --docker)
-            check_prerequisites
+            check_prerequisites || exit 1
             start_docker
             wait_for_airflow
             ;;
         --db-init)
             init_database
             ;;
+        --check)
+            check_prerequisites
+            ;;
+        --clean)
+            cleanup
+            ;;
         --status)
             cd "$DOCKER_DIR"
-            docker-compose ps
+            $COMPOSE_CMD ps
             ;;
         --logs)
             cd "$DOCKER_DIR"
-            docker-compose logs -f ${2:-}
+            $COMPOSE_CMD logs -f ${2:-}
             ;;
         --stop)
             cd "$DOCKER_DIR"
-            docker-compose down
+            $COMPOSE_CMD down
             echo -e "${GREEN}Services stopped${NC}"
             ;;
+        --help|-h)
+            echo "Usage: $0 [OPTION]"
+            echo ""
+            echo "Options:"
+            echo "  (no option)   Full setup"
+            echo "  --dev         Development mode (lighter weight)"
+            echo "  --docker      Start Docker only"
+            echo "  --db-init     Initialize database only"
+            echo "  --check       Check prerequisites only"
+            echo "  --clean       Clean up and reset"
+            echo "  --status      Show service status"
+            echo "  --logs        View logs"
+            echo "  --stop        Stop all services"
+            echo "  --help, -h    Show this help"
+            ;;
         full|*)
-            check_prerequisites
+            check_prerequisites || exit 1
             create_directories
             setup_env
             set_airflow_uid

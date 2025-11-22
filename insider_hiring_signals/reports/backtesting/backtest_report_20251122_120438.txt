@@ -1,0 +1,136 @@
+================================================================================
+INSIDER/HIRING SIGNALS BACKTESTING REPORT
+================================================================================
+
+Period: 2023-01-01 to 2023-12-31
+Companies Analyzed: 50
+Total Signals: 459
+
+----------------------------------------
+CORRELATION ANALYSIS
+----------------------------------------
+7-Day Correlation:  72.01%
+30-Day Correlation: 50.40% (p=0.0000)
+90-Day Correlation: 17.73%
+
+Target (65%): NEEDS IMPROVEMENT
+
+----------------------------------------
+WIN RATES
+----------------------------------------
+Bullish Signal Win Rate: 79.3%
+Bearish Signal Win Rate: 71.5%
+Overall Accuracy: 74.3%
+
+----------------------------------------
+AVERAGE RETURNS (30-DAY)
+----------------------------------------
+Bullish Signals: +8.81%
+Bearish Signals: -6.84%
+Neutral Signals: -2.22%
+
+By Signal Strength:
+  strong_bullish (6+): +12.02%
+  bullish (3-6): +6.26%
+  weak_bullish (0-3): +0.00%
+  weak_bearish (-3-0): -4.20%
+  bearish (-6--3): -7.03%
+  strong_bearish (<-6): -6.20%
+
+----------------------------------------
+RISK METRICS
+----------------------------------------
+Sharpe Ratio: -0.34
+Maximum Drawdown: -50.79%
+Volatility (Std Dev): 14.23%
+
+----------------------------------------
+PERFORMANCE BY SIGNAL TYPE
+----------------------------------------
+
+insider_sell:
+  Signals: 319
+  Avg Return: -5.83%
+  Win Rate: 30.0%
+
+insider_buy:
+  Signals: 140
+  Avg Return: +8.81%
+  Win Rate: 79.0%
+
+----------------------------------------
+PERFORMANCE BY SECTOR
+----------------------------------------
+
+ONCOLOGY:
+  Signals: 60
+  Correlation: 48.60%
+  Win Rate: 58.0%
+
+GENE_THERAPY:
+  Signals: 58
+  Correlation: 53.00%
+  Win Rate: 34.0%
+
+RARE_DISEASE:
+  Signals: 43
+  Correlation: 54.00%
+  Win Rate: 37.0%
+
+CNS:
+  Signals: 73
+  Correlation: 51.10%
+  Win Rate: 41.0%
+
+IMMUNOLOGY:
+  Signals: 38
+  Correlation: 55.40%
+  Win Rate: 37.0%
+
+LARGE_CAP:
+  Signals: 72
+  Correlation: 49.30%
+  Win Rate: 51.0%
+
+----------------------------------------
+OPTIMIZED SIGNAL WEIGHTS
+----------------------------------------
+Weight Optimization Improvement: +0.00%
+
+  CEO_PURCHASE: +5.0
+  CEO_SALE: -4.0
+  CFO_PURCHASE: +4.0
+  CFO_SALE: -5.0
+  CMO_PURCHASE: +5.0
+  CMO_SALE: -5.0
+  COMMERCIAL_BUILDUP: +5.0
+  DIRECTOR_PURCHASE: +3.0
+  FUND_EXIT: -5.0
+  FUND_INCREASE_50: +4.0
+  FUND_NEW_POSITION: +5.0
+  HIRING_FREEZE: -4.0
+  MULTIPLE_INSIDER_BUY: +5.3 (was +6.0)
+  MULTIPLE_INSIDER_SELL: -5.0 (was -6.0)
+  OFFICER_PURCHASE: +3.0
+
+----------------------------------------
+TRADING RECOMMENDATIONS
+----------------------------------------
+
+1. MODERATE SYSTEM: Signal correlation of 50.4% shows promise. Consider additional signal refinement.
+
+2. BULLISH SIGNALS EFFECTIVE: 79% win rate. Focus on strong buy signals (score 6+).
+
+3. BEARISH SIGNALS EFFECTIVE: 71% win rate. Use sell signals for risk management.
+
+4. HIGH-CONVICTION BUYS: Strong bullish signals (6+) average 12.0% return. Prioritize these signals.
+
+5. SECTOR FOCUS: IMMUNOLOGY sector shows highest signal correlation (55%). Consider overweighting this sector.
+
+6. POSITION SIZING: Scale position size with signal strength. Use 2% base position for score 3-5, 3-4% for score 6+.
+
+7. RISK MANAGEMENT: Set 10% stop-loss on all signal-based positions. Reduce exposure when multiple bearish signals cluster.
+
+================================================================================
+END OF REPORT
+================================================================================

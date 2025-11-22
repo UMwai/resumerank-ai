@@ -3,12 +3,13 @@
 Scheduler for Insider Activity + Hiring Signals System
 
 Runs scrapers and scoring on a schedule using APScheduler.
-Can run as a daemon or in foreground.
+Supports both traditional batch scraping and real-time RSS monitoring.
 
 Usage:
     python scheduler.py                 # Run in foreground
     python scheduler.py --daemon        # Run as daemon (background)
     python scheduler.py --once          # Run once and exit
+    python scheduler.py --realtime      # Enable real-time RSS monitoring (30-min intervals)
 """
 
 import argparse
@@ -17,11 +18,13 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from main import run_daily_pipeline, run_scrapers, run_scoring, run_digest
 from utils.config import get_config
@@ -31,15 +34,51 @@ logger = setup_logger(__name__)
 
 # Global scheduler
 scheduler = None
+realtime_monitor = None
 
 
 def job_form4_scraper():
-    """Run Form 4 scraper job."""
-    logger.info(f"[{datetime.now()}] Running Form 4 scraper...")
+    """Run Form 4 scraper job (batch mode)."""
+    logger.info(f"[{datetime.now()}] Running Form 4 scraper (batch)...")
     try:
         run_scrapers(form4=True)
     except Exception as e:
         logger.error(f"Form 4 scraper failed: {e}")
+
+
+def job_form4_realtime():
+    """Run Form 4 real-time RSS poll."""
+    logger.info(f"[{datetime.now()}] Polling Form 4 RSS feed...")
+    try:
+        from scrapers.form4_realtime import poll_form4_rss
+        result = poll_form4_rss()
+        logger.info(f"RSS poll: {result.get('filings_processed', 0)} watchlist filings processed")
+    except Exception as e:
+        logger.error(f"Form 4 RSS poll failed: {e}")
+
+
+def job_form8k_scraper():
+    """Run Form 8-K executive changes scraper."""
+    logger.info(f"[{datetime.now()}] Running Form 8-K scraper...")
+    try:
+        from scrapers.form8k_scraper import Form8KScraper
+        scraper = Form8KScraper(use_ai=True)
+        result = scraper.run(days=7)
+        logger.info(f"8-K scraper: {result.get('changes_found', 0)} executive changes found")
+    except Exception as e:
+        logger.error(f"Form 8-K scraper failed: {e}")
+
+
+def job_glassdoor_scraper():
+    """Run Glassdoor sentiment scraper."""
+    logger.info(f"[{datetime.now()}] Running Glassdoor scraper...")
+    try:
+        from scrapers.glassdoor_scraper import GlassdoorScraper
+        scraper = GlassdoorScraper()
+        result = scraper.run(max_pages=2, max_reviews=15)
+        logger.info(f"Glassdoor scraper: {result.get('reviews_found', 0)} reviews analyzed")
+    except Exception as e:
+        logger.error(f"Glassdoor scraper failed: {e}")
 
 
 def job_13f_scraper():
@@ -89,19 +128,43 @@ def job_full_pipeline():
         logger.error(f"Daily pipeline failed: {e}")
 
 
-def setup_scheduler():
-    """Setup the scheduler with jobs."""
+def setup_scheduler(enable_realtime: bool = False, realtime_interval: int = 30):
+    """
+    Setup the scheduler with jobs.
+
+    Args:
+        enable_realtime: Enable real-time Form 4 RSS monitoring (30-min intervals)
+        realtime_interval: Minutes between real-time RSS polls (default: 30)
+    """
     global scheduler
     scheduler = BackgroundScheduler()
 
     config = get_config()
 
-    # Form 4 scraper - every 4 hours during market hours
+    if enable_realtime:
+        # Real-time Form 4 RSS monitoring (every 30 minutes)
+        scheduler.add_job(
+            job_form4_realtime,
+            IntervalTrigger(minutes=realtime_interval),
+            id='form4_realtime',
+            name='Form 4 Real-Time RSS Monitor'
+        )
+        logger.info(f"Real-time Form 4 monitoring enabled (every {realtime_interval} minutes)")
+    else:
+        # Batch Form 4 scraper - every 4 hours during market hours
+        scheduler.add_job(
+            job_form4_scraper,
+            CronTrigger(hour='9,13,17,21', minute=0),  # 9am, 1pm, 5pm, 9pm
+            id='form4_scraper',
+            name='SEC Form 4 Scraper (Batch)'
+        )
+
+    # Form 8-K executive changes scraper - twice daily
     scheduler.add_job(
-        job_form4_scraper,
-        CronTrigger(hour='9,13,17,21', minute=0),  # 9am, 1pm, 5pm, 9pm
-        id='form4_scraper',
-        name='SEC Form 4 Scraper'
+        job_form8k_scraper,
+        CronTrigger(hour='7,19', minute=0),  # 7am and 7pm
+        id='form8k_scraper',
+        name='SEC Form 8-K Executive Changes Scraper'
     )
 
     # 13F scraper - twice daily (quarterly data doesn't change often)
@@ -120,13 +183,31 @@ def setup_scheduler():
         name='Job Posting Scraper'
     )
 
-    # Signal scoring - after scrapers complete
+    # Glassdoor sentiment scraper - weekly (Sunday 6am)
+    # Less frequent due to rate limiting concerns
     scheduler.add_job(
-        job_signal_scoring,
-        CronTrigger(hour='10,14,18,22', minute=30),  # 30 min after Form 4 scraper
-        id='signal_scoring',
-        name='Signal Scoring'
+        job_glassdoor_scraper,
+        CronTrigger(day_of_week='sun', hour=6, minute=0),
+        id='glassdoor_scraper',
+        name='Glassdoor Sentiment Scraper'
     )
+
+    # Signal scoring - after scrapers complete
+    if enable_realtime:
+        # More frequent scoring with real-time data
+        scheduler.add_job(
+            job_signal_scoring,
+            CronTrigger(hour='8,10,12,14,16,18,20', minute=0),
+            id='signal_scoring',
+            name='Signal Scoring'
+        )
+    else:
+        scheduler.add_job(
+            job_signal_scoring,
+            CronTrigger(hour='10,14,18,22', minute=30),  # 30 min after Form 4 scraper
+            id='signal_scoring',
+            name='Signal Scoring'
+        )
 
     # Daily digest - in the morning
     digest_time = config.email.get('digest_time', '07:00')
@@ -158,6 +239,10 @@ def main():
                         help='Run as daemon (background)')
     parser.add_argument('--once', action='store_true',
                         help='Run once and exit')
+    parser.add_argument('--realtime', action='store_true',
+                        help='Enable real-time Form 4 RSS monitoring (30-min intervals)')
+    parser.add_argument('--interval', type=int, default=30,
+                        help='Real-time polling interval in minutes (default: 30)')
 
     args = parser.parse_args()
 
@@ -171,12 +256,18 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Setup and start scheduler
-    scheduler = setup_scheduler()
+    scheduler = setup_scheduler(
+        enable_realtime=args.realtime,
+        realtime_interval=args.interval
+    )
     scheduler.start()
 
     logger.info("Scheduler started. Jobs scheduled:")
     for job in scheduler.get_jobs():
         logger.info(f"  - {job.name}: {job.trigger}")
+
+    if args.realtime:
+        logger.info(f"Real-time monitoring enabled (polling every {args.interval} minutes)")
 
     if args.daemon:
         logger.info("Running in daemon mode...")

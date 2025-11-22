@@ -50,31 +50,61 @@ class ScraperConfig:
 @dataclass
 class SignalConfig:
     """Signal detection and scoring configuration."""
-    # Signal weights (from spec)
+    # Signal weights (from spec) - Expanded to 20+ signal types
     weights: dict = field(default_factory=lambda: {
-        # Positive signals
+        # === POSITIVE SIGNALS ===
+        # Trial Progress Signals
         "sites_added": 3,
-        "insider_buying": 4,
         "early_enrollment": 3,
-        "patent_filed": 5,
-        "late_breaking_abstract": 5,
-        "ceo_presentation": 2,
-        # Negative signals
-        "enrollment_extended": -3,
-        "endpoint_change": -5,
-        "insider_selling": -4,
-        "sites_removed": -4,
-        "no_conference": -2,
-        "risk_factor_increase": -3,
-        # Additional MVP signals
-        "status_change_positive": 2,
-        "status_change_negative": -2,
-        "completion_date_accelerated": 3,
-        "completion_date_delayed": -3,
         "enrollment_increase": 2,
-        "enrollment_decrease": -2,
+        "completion_date_accelerated": 3,
+        "status_change_positive": 2,
+
+        # Regulatory Signals
+        "fda_breakthrough": 5,
+        "fda_fast_track": 4,
+        "fda_priority_review": 4,
+        "fda_orphan_designation": 3,
+        "patent_filed": 5,
+
+        # Publication/Conference Signals
+        "late_breaking_abstract": 5,
+        "preprint_positive": 3,
+        "ceo_presentation": 2,
+        "conference_presentation": 2,
+
+        # Financial Signals
+        "insider_buying": 4,
         "sec_8k_positive": 3,
+        "partnership_announced": 4,
+        "funding_secured": 3,
+
+        # === NEGATIVE SIGNALS ===
+        # Trial Progress Signals
+        "enrollment_extended": -3,
+        "enrollment_decrease": -2,
+        "completion_date_delayed": -3,
+        "status_change_negative": -2,
+        "sites_removed": -4,
+        "endpoint_change": -5,
+
+        # Regulatory Signals
+        "clinical_hold": -5,
+        "fda_complete_response": -4,
+        "safety_signal": -4,
+
+        # Publication/Conference Signals
+        "preprint_negative": -3,
+        "no_conference": -2,
+
+        # Financial Signals
+        "insider_selling": -4,
         "sec_8k_negative": -3,
+        "risk_factor_increase": -3,
+
+        # === NEUTRAL SIGNALS ===
+        "status_change_neutral": 0,
+        "data_update": 0,
     })
 
     # Scoring thresholds

@@ -512,6 +512,26 @@ class Form4Scraper:
             logger.error(f"Failed to parse derivative transaction: {e}")
             return None
 
+    # Enhanced 10b5-1 detection patterns
+    RULE_10B5_1_PATTERNS = [
+        r'10b5-1',
+        r'10b-5-1',
+        r'rule\s*10b5-1',
+        r'rule\s*10b-5-1',
+        r'trading\s*plan',
+        r'pre-arranged',
+        r'pre-established',
+        r'prearranged',
+        r'preestablished',
+        r'automatic\s*(?:sales?|purchase)',
+        r'scheduled\s*(?:sales?|transaction)',
+        r'pursuant\s*to\s*(?:a|an)\s*plan',
+        r'adopted\s*(?:a|an)?\s*(?:trading)?\s*plan',
+        r'written\s*(?:trading)?\s*plan',
+        r'affirmative\s*defense',
+        r'insider\s*trading\s*plan',
+    ]
+
     def _check_10b5_1_footnote(self, trans_elem: ET.Element, footnote_id: str) -> bool:
         """Check if a footnote indicates a 10b5-1 plan."""
         # Look for footnotes in the root document
@@ -522,9 +542,134 @@ class Form4Scraper:
         footnotes = root.findall(f".//footnote[@id='{footnote_id}']")
         for fn in footnotes:
             text = fn.text or ''
-            if '10b5-1' in text.lower() or 'rule 10b5-1' in text.lower():
+            if self._text_indicates_10b5_1(text):
                 return True
         return False
+
+    def _text_indicates_10b5_1(self, text: str) -> bool:
+        """
+        Check if text indicates a Rule 10b5-1 trading plan.
+
+        Uses multiple patterns to detect 10b5-1 plans which are pre-arranged
+        trading plans that provide an affirmative defense against insider trading.
+
+        These trades are generally less informative as signals since they are
+        scheduled in advance and not based on current insider knowledge.
+
+        Args:
+            text: Text to analyze (from footnotes, remarks, etc.)
+
+        Returns:
+            True if text indicates a 10b5-1 plan
+        """
+        text_lower = text.lower()
+
+        for pattern in self.RULE_10B5_1_PATTERNS:
+            if re.search(pattern, text_lower):
+                return True
+
+        return False
+
+    def _check_10b5_1_comprehensive(self, trans_elem: ET.Element, root: ET.Element) -> Tuple[bool, str]:
+        """
+        Comprehensive 10b5-1 plan detection.
+
+        Checks multiple locations in the Form 4 filing:
+        1. Transaction coding section
+        2. Footnotes referenced by the transaction
+        3. All footnotes in the document
+        4. Remarks section
+
+        Args:
+            trans_elem: The transaction element
+            root: Root element of the XML document
+
+        Returns:
+            Tuple of (is_10b5_1, detection_source)
+        """
+        # Check 1: Look for footnote references in the transaction
+        footnote_ids = trans_elem.findall('.//footnoteId')
+        for fn_id in footnote_ids:
+            fn_ref = fn_id.get('id', '')
+            if fn_ref:
+                # Find the footnote by ID
+                for footnote in root.findall(f".//footnote[@id='{fn_ref}']"):
+                    text = footnote.text or ''
+                    if self._text_indicates_10b5_1(text):
+                        return True, f"footnote_{fn_ref}"
+
+        # Check 2: Search all footnotes for 10b5-1 mentions
+        all_footnotes = root.findall('.//footnote')
+        for footnote in all_footnotes:
+            text = footnote.text or ''
+            if self._text_indicates_10b5_1(text):
+                return True, "footnote_general"
+
+        # Check 3: Check remarks section
+        remarks = root.find('.//remarks')
+        if remarks is not None and remarks.text:
+            if self._text_indicates_10b5_1(remarks.text):
+                return True, "remarks"
+
+        # Check 4: Check ownerSignature explanation
+        signatures = root.findall('.//ownerSignature')
+        for sig in signatures:
+            explanation = sig.find('signatureExplanation')
+            if explanation is not None and explanation.text:
+                if self._text_indicates_10b5_1(explanation.text):
+                    return True, "signature_explanation"
+
+        # Check 5: Look in transaction coding for explicit 10b5-1 indicator
+        coding = trans_elem.find('.//transactionCoding')
+        if coding is not None:
+            # Some filings explicitly mark 10b5-1 in coding
+            for child in coding:
+                if child.text and self._text_indicates_10b5_1(child.text):
+                    return True, "transaction_coding"
+
+        return False, ""
+
+    def get_10b5_1_detection_confidence(self, is_10b5_1: bool, source: str, footnote_text: str = "") -> Dict:
+        """
+        Provide confidence assessment for 10b5-1 detection.
+
+        Returns additional context about the detection for reporting purposes.
+
+        Args:
+            is_10b5_1: Whether a 10b5-1 plan was detected
+            source: Where the detection was made
+            footnote_text: The actual footnote text if available
+
+        Returns:
+            Dictionary with detection details
+        """
+        confidence_scores = {
+            'footnote_explicit': 0.95,  # Explicitly mentions "Rule 10b5-1"
+            'footnote_trading_plan': 0.85,  # Mentions "trading plan"
+            'footnote_general': 0.75,
+            'remarks': 0.80,
+            'signature_explanation': 0.70,
+            'transaction_coding': 0.90,
+            '': 0.0
+        }
+
+        # Determine confidence based on source and text
+        base_confidence = 0.0
+        if is_10b5_1:
+            if 'rule 10b5-1' in footnote_text.lower() or '10b5-1' in footnote_text.lower():
+                base_confidence = confidence_scores.get('footnote_explicit', 0.75)
+            elif 'trading plan' in footnote_text.lower():
+                base_confidence = confidence_scores.get('footnote_trading_plan', 0.75)
+            else:
+                base_confidence = confidence_scores.get(source, 0.75)
+
+        return {
+            'is_10b5_1': is_10b5_1,
+            'confidence': base_confidence,
+            'detection_source': source,
+            'footnote_excerpt': footnote_text[:200] if footnote_text else '',
+            'interpretation': 'Pre-scheduled trade (less informative)' if is_10b5_1 else 'Discretionary trade (more informative)'
+        }
 
     def _extract_footnotes(self, trans_elem: ET.Element) -> str:
         """Extract footnote text related to a transaction."""

@@ -1,0 +1,37 @@
+# Risk Management Framework Requirements
+
+# Core dependencies
+numpy>=1.21.0
+pandas>=1.3.0
+scipy>=1.7.0
+
+# Technical analysis
+ta-lib>=0.4.24
+pandas-ta>=0.3.14b0
+
+# Data and API
+yfinance>=0.2.18
+
+# Logging and monitoring
+loguru>=0.7.0
+
+# Configuration
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+
+# Type hints
+typing-extensions>=4.5.0
+
+# Visualization (for risk dashboards)
+matplotlib>=3.5.0
+seaborn>=0.12.0
+plotly>=5.14.0
+
+# Database (for storing risk metrics)
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0

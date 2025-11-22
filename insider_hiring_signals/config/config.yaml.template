@@ -104,27 +104,123 @@ watchlist:
   - UTHR
 
 # Top Biotech-Focused Institutional Investors (13F tracking)
+# Expanded list of 25+ top biotech/healthcare-focused funds
 institutional_investors:
+  # Tier 1: Dedicated Healthcare/Biotech Funds
   - name: "Baker Bros Advisors LP"
     cik: "0001537554"
+    tier: 1
+    focus: "biotech_specialist"
   - name: "RA Capital Management LP"
     cik: "0001598627"
+    tier: 1
+    focus: "biotech_specialist"
   - name: "Perceptive Advisors LLC"
     cik: "0001428987"
-  - name: "Boxer Capital LLC"
-    cik: "0001510494"
+    tier: 1
+    focus: "biotech_specialist"
   - name: "OrbiMed Advisors LLC"
     cik: "0001187508"
-  - name: "Farallon Capital Management LLC"
-    cik: "0001015780"
-  - name: "Viking Global Investors LP"
-    cik: "0001103804"
-  - name: "Partner Fund Management LP"
-    cik: "0001484967"
+    tier: 1
+    focus: "healthcare_specialist"
   - name: "Deerfield Management Company"
     cik: "0001502183"
+    tier: 1
+    focus: "healthcare_specialist"
   - name: "Tang Capital Management LLC"
     cik: "0001569691"
+    tier: 1
+    focus: "biotech_specialist"
+  - name: "Boxer Capital LLC"
+    cik: "0001510494"
+    tier: 1
+    focus: "biotech_specialist"
+  - name: "EcoR1 Capital LLC"
+    cik: "0001591009"
+    tier: 1
+    focus: "biotech_specialist"
+  - name: "Casdin Capital LLC"
+    cik: "0001569391"
+    tier: 1
+    focus: "biotech_specialist"
+  - name: "Eventide Asset Management LLC"
+    cik: "0001535711"
+    tier: 1
+    focus: "healthcare_specialist"
+
+  # Tier 2: Large Generalist Funds with Significant Healthcare Positions
+  - name: "Farallon Capital Management LLC"
+    cik: "0001015780"
+    tier: 2
+    focus: "multi_strategy"
+  - name: "Viking Global Investors LP"
+    cik: "0001103804"
+    tier: 2
+    focus: "multi_strategy"
+  - name: "Partner Fund Management LP"
+    cik: "0001484967"
+    tier: 2
+    focus: "multi_strategy"
+  - name: "Point72 Asset Management LP"
+    cik: "0001603466"
+    tier: 2
+    focus: "multi_strategy"
+  - name: "Citadel Advisors LLC"
+    cik: "0001423053"
+    tier: 2
+    focus: "multi_strategy"
+  - name: "D.E. Shaw & Co LP"
+    cik: "0001009207"
+    tier: 2
+    focus: "multi_strategy"
+  - name: "Millennium Management LLC"
+    cik: "0001273087"
+    tier: 2
+    focus: "multi_strategy"
+  - name: "Two Sigma Investments LP"
+    cik: "0001179392"
+    tier: 2
+    focus: "quantitative"
+
+  # Tier 3: Healthcare/Biotech-Focused VCs and Crossover Investors
+  - name: "Venrock Associates"
+    cik: "0001389067"
+    tier: 3
+    focus: "venture_crossover"
+  - name: "Foresite Capital Management"
+    cik: "0001633040"
+    tier: 3
+    focus: "venture_crossover"
+  - name: "Surveyor Capital Ltd"
+    cik: "0001568820"
+    tier: 3
+    focus: "healthcare_specialist"
+  - name: "Consonance Capital Management LP"
+    cik: "0001802696"
+    tier: 3
+    focus: "healthcare_specialist"
+  - name: "Rock Springs Capital Management LP"
+    cik: "0001535323"
+    tier: 3
+    focus: "healthcare_specialist"
+  - name: "Great Point Partners LLC"
+    cik: "0001454502"
+    tier: 3
+    focus: "healthcare_specialist"
+  - name: "Adage Capital Partners GP LLC"
+    cik: "0001022851"
+    tier: 3
+    focus: "multi_strategy"
+
+  # Tier 4: Activist and Event-Driven Healthcare Investors
+  - name: "Sarissa Capital Management LP"
+    cik: "0001577445"
+    tier: 4
+    focus: "activist"
+  - name: "Icahn Associates Holding LLC"
+    cik: "0000921669"
+    tier: 4
+    focus: "activist"
 
 # Logging Configuration
 logging:

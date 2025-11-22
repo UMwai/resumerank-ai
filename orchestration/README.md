@@ -27,7 +27,13 @@ orchestration/
 ├── dags/                          # Airflow DAG definitions
 │   ├── clinical_trial_dag.py      # Clinical trial signal DAG
 │   ├── patent_ip_dag.py           # Patent/IP intelligence DAG
-│   └── insider_hiring_dag.py      # Insider/hiring signals DAGs
+│   ├── insider_hiring_dag.py      # Insider/hiring signals DAGs
+│   └── operators/                 # Custom Airflow operators
+│       ├── data_operators.py      # Data fetching with retry logic
+│       ├── signal_operators.py    # Signal detection and scoring
+│       ├── alert_operators.py     # Multi-channel alerting
+│       ├── health_operators.py    # Health check operators
+│       └── metrics_operators.py   # SLA and metrics tracking
 ├── config/                        # Configuration files
 │   ├── settings.py                # Central configuration
 │   ├── env.example                # Environment template
@@ -40,18 +46,25 @@ orchestration/
 │   ├── metrics.py                 # Prometheus metrics collection
 │   └── __init__.py
 ├── docker/                        # Docker deployment
-│   ├── docker-compose.yml         # Local orchestration stack
+│   ├── docker-compose.yml         # Production orchestration stack
+│   ├── docker-compose.dev.yml     # Development configuration
 │   ├── Dockerfile.airflow         # Custom Airflow image
 │   ├── Dockerfile.healthcheck     # Health check service
 │   ├── requirements.txt           # Python dependencies
 │   ├── init-db.sql                # Database initialization
 │   ├── prometheus.yml             # Prometheus configuration
 │   └── grafana/                   # Grafana dashboards
+│       └── dashboards/            # Dashboard JSON configs
 ├── cloud/                         # Cloud deployments
 │   ├── aws/terraform/             # AWS infrastructure
 │   └── gcp/terraform/             # GCP infrastructure
 ├── scripts/                       # Utility scripts
-│   └── setup.sh                   # Local setup script
+│   └── setup.sh                   # Cross-platform setup script
+├── tests/                         # Test suite
+│   ├── test_metrics.py            # Metrics system tests
+│   └── test_dag_validation.py     # DAG validation tests
+├── .devcontainer/                 # VS Code development container
+│   └── devcontainer.json          # Dev container configuration
 └── README.md                      # This file
 ```
 
@@ -59,33 +72,53 @@ orchestration/
 
 ### Prerequisites
 
-- Docker and Docker Compose
+- Docker and Docker Compose (v2.0+)
 - 4GB+ RAM available for Docker
 - Ports 3000, 5432, 8080, 9090, 9091 available
 
-### Local Setup
+### Supported Platforms
 
-1. **Clone and navigate to orchestration directory:**
-   ```bash
-   cd orchestration
-   ```
+- macOS (Intel and Apple Silicon)
+- Linux (Ubuntu, Debian, CentOS)
+- Windows (via WSL2 or Git Bash)
 
-2. **Run the setup script:**
-   ```bash
-   ./scripts/setup.sh
-   ```
+### Automated Setup (Recommended)
 
-3. **Configure environment:**
-   ```bash
-   cp config/env.example config/.env
-   # Edit config/.env with your settings
-   ```
+```bash
+# Clone and navigate to orchestration directory
+cd orchestration
 
-4. **Access services:**
-   - Airflow: http://localhost:8080 (admin/admin)
-   - Grafana: http://localhost:3000 (admin/admin)
-   - Prometheus: http://localhost:9090
-   - Health Check: http://localhost:9091/health
+# Check prerequisites
+./scripts/setup.sh --check
+
+# Full setup (production-like)
+./scripts/setup.sh
+
+# OR Development mode (lighter weight, faster startup)
+./scripts/setup.sh --dev
+```
+
+### Access Services
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Airflow | http://localhost:8080 | admin / admin |
+| Grafana | http://localhost:3000 | admin / admin |
+| Prometheus | http://localhost:9090 | N/A |
+| Health Check | http://localhost:9091/health | N/A |
+| PostgreSQL | localhost:5432 | signals / signals_password |
+
+### Setup Script Options
+
+```bash
+./scripts/setup.sh              # Full setup
+./scripts/setup.sh --dev        # Development mode
+./scripts/setup.sh --check      # Check prerequisites only
+./scripts/setup.sh --status     # Show service status
+./scripts/setup.sh --logs       # View logs
+./scripts/setup.sh --stop       # Stop all services
+./scripts/setup.sh --clean      # Clean up and reset
+```
 
 ### Manual Docker Setup
 
@@ -95,8 +128,11 @@ cd docker
 # Set Airflow user ID
 echo "AIRFLOW_UID=$(id -u)" > .env
 
-# Start services
+# Start services (production)
 docker-compose up -d
+
+# OR Start services (development with hot-reload)
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 # View logs
 docker-compose logs -f
